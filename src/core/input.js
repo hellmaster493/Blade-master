@@ -100,10 +100,12 @@ export class Input {
       }
     });
     add(document, 'pointerlockerror', () => {
-      // Chrome briefly refuses re-locking right after Esc; only give up after repeated
-      // failures (e.g. sandboxed iframes) and fall back to click-to-attack + right-drag camera.
+      // Chrome briefly refuses re-locking right after Esc, so an error then is transient.
+      // Any other refusal (e.g. an embedding frame without pointer-lock permission) means
+      // fall back at once to click-to-attack + right-drag camera.
       this.lockErrors++;
-      if (this.lockErrors >= 3) this.lockFailed = true;
+      const justExited = performance.now() - this.lastLockLossTime < 1500;
+      if (!justExited || this.lockErrors >= 3) this.lockFailed = true;
     });
 
     add(window, 'blur', () => this._focusLost());
