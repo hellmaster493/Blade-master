@@ -212,11 +212,22 @@ export class Kairo {
     const input = this.game.input;
     let ix = 0;
     let iz = 0;
+    this.inputMag = 1;
     if (this.game.controllable) {
       if (input.isDown('KeyW')) iz += 1;
       if (input.isDown('KeyS')) iz -= 1;
       if (input.isDown('KeyD')) ix += 1;
       if (input.isDown('KeyA')) ix -= 1;
+      const a = input.analog;
+      if (a.active && ix === 0 && iz === 0) {
+        // touch joystick: direction plus a gentle walk-to-run ramp
+        const m = Math.hypot(a.x, a.y);
+        if (m > 0.18) {
+          ix = a.x;
+          iz = a.y;
+          this.inputMag = Math.min(1, (m - 0.18) / 0.62 + 0.35);
+        }
+      }
     }
     this.inputZ = iz;
     this.inputX = ix;
@@ -386,7 +397,7 @@ export class Kairo {
     if (this.state !== 'move') return;
 
     const locked = this.validLockTarget();
-    const speed = locked ? KAIRO.lockSpeed * (this.inputZ < 0 ? KAIRO.backpedalMul : 1) : KAIRO.runSpeed;
+    const speed = (locked ? KAIRO.lockSpeed * (this.inputZ < 0 ? KAIRO.backpedalMul : 1) : KAIRO.runSpeed) * (this.inputMag || 1);
     this.accelerate(_wish, speed, dt);
     if (locked) {
       const yaw = Math.atan2(locked.position.x - this.position.x, locked.position.z - this.position.z);

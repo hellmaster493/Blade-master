@@ -190,7 +190,8 @@ export class HUD {
     this.hpBar.classList.toggle('low', hpK < 0.3);
     const ultK = k.energy / KAIRO.ultimate.max;
     this.ultBar.querySelector('.fill').style.width = (ultK * 100).toFixed(1) + '%';
-    this.ultBar.querySelector('.val').textContent = ultK >= 1 ? 'CRIMSON TEMPEST READY — R' : `ULTIMATE ${Math.floor(ultK * 100)}%`;
+    const touch = g.input.touchMode;
+    this.ultBar.querySelector('.val').textContent = ultK >= 1 ? (touch ? 'CRIMSON TEMPEST READY' : 'CRIMSON TEMPEST READY — R') : `ULTIMATE ${Math.floor(ultK * 100)}%`;
     this.ultBar.classList.toggle('full', ultK >= 1);
 
     // ability slots
@@ -245,7 +246,9 @@ export class HUD {
     const d = g.director;
     if (g.mode === 'training') {
       this.wavePanel.querySelector('.wave-name').textContent = 'TRAINING GROUNDS';
-      this.wavePanel.querySelector('.wave-sub').textContent = `T: dummies attack ${g.trainingAggro ? 'ON' : 'OFF'} · ultimate charges automatically`;
+      this.wavePanel.querySelector('.wave-sub').textContent = touch
+        ? `Dummies attack: ${g.trainingAggro ? 'ON' : 'OFF'} (change in pause menu)`
+        : `T: dummies attack ${g.trainingAggro ? 'ON' : 'OFF'} · ultimate charges automatically`;
     } else {
       const wv = Math.max(0, d.wave) + 1;
       this.wavePanel.querySelector('.wave-name').textContent = d.wave >= 0 ? `WAVE ${wv} / ${d.totalWaves}` : 'GET READY';

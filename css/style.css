@@ -125,6 +125,7 @@ html, body {
   font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
   transform: skewX(18deg);
   text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
 }
 .bar.ult { height: 12px; width: 88%; }
 .bar.ult .fill { background: linear-gradient(90deg, var(--crimson-deep), var(--crimson), #ff8a9a); transition: width 0.15s; }
@@ -358,6 +359,7 @@ html, body {
   background: rgba(160, 10, 30, 0.6);
   padding: 3px 12px;
   border: 1px solid var(--crimson);
+  white-space: nowrap;
 }
 
 .enemy-bars, .damage-numbers { position: absolute; inset: 0; }
@@ -411,7 +413,7 @@ html, body {
   background: radial-gradient(ellipse at 70% 50%, transparent 20%, rgba(4, 5, 12, 0.65) 75%);
 }
 #title-screen { justify-content: flex-start; background: linear-gradient(90deg, rgba(4, 5, 12, 0.92) 0%, rgba(4, 5, 12, 0.7) 40%, transparent 70%); }
-.title-wrap { width: min(560px, 92vw); margin-left: clamp(16px, 6vw, 110px); max-height: 100vh; overflow-y: auto; padding: 2vh 0; }
+.title-wrap { width: min(560px, 92vw); margin-left: clamp(12px, 6vw, 110px); max-height: 100%; overflow-x: hidden; overflow-y: auto; padding: 2vh 8px; overscroll-behavior: contain; }
 .logo { display: flex; align-items: center; gap: 14px; margin-bottom: 2vh; }
 .logo-icon { width: clamp(56px, 6vw, 80px); height: clamp(56px, 6vw, 80px); filter: drop-shadow(0 0 12px rgba(255, 36, 64, 0.6)); }
 .logo-icon svg { width: 100%; height: 100%; }
@@ -452,6 +454,8 @@ html, body {
 .mode-buttons { display: flex; gap: 12px; margin-top: 2.4vh; flex-wrap: wrap; }
 button {
   pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   font-family: var(--display);
   font-style: italic;
   letter-spacing: 0.12em;
@@ -472,8 +476,10 @@ button.primary:hover, button.primary:focus-visible { box-shadow: 0 0 20px rgba(2
 .title-links { display: flex; gap: 10px; margin-top: 12px; }
 .title-links button { font-size: 12px; padding: 7px 14px; }
 .title-note { font-size: 11px; color: var(--muted); margin-top: 14px; letter-spacing: 0.05em; }
-.touch-note { display: none; font-size: 13px; color: #ffd0d8; margin-top: 10px; padding: 8px 10px; border: 1px solid var(--crimson); background: rgba(160, 10, 30, 0.35); }
-@media (hover: none) and (pointer: coarse) { .touch-note { display: block; } }
+.touch-note { display: none; font-size: 12px; color: #dff4ff; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(94, 200, 255, 0.5); background: rgba(20, 60, 120, 0.35); }
+body.touch .touch-note { display: block; }
+.touch-row { display: none; }
+body.touch .touch-row { display: table-row; }
 
 .panel {
   width: min(380px, 92vw);
@@ -509,9 +515,149 @@ table.controls td:last-child { color: var(--muted); }
 .res-stats div { display: flex; justify-content: space-between; font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding: 3px 0; }
 .res-stats span { color: var(--muted); }
 
+/* ------------------------------------------------------------ touch controls */
+#touch { position: absolute; inset: 0; touch-action: none; }
+.t-look-zone, .t-stick-zone { position: absolute; pointer-events: auto; touch-action: none; }
+.t-look-zone { inset: 0; }
+.t-stick-zone { left: 0; top: 24%; bottom: 0; width: 46%; }
+.t-stick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(160, 210, 255, 0.35);
+  background: radial-gradient(circle, rgba(94, 200, 255, 0.12), rgba(10, 14, 30, 0.3) 70%);
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.t-stick.active { opacity: 1; }
+.t-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #eaf8ff, var(--blue) 55%, var(--blue-deep));
+  box-shadow: 0 0 14px rgba(94, 200, 255, 0.6);
+}
+.tb {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+  border-radius: 50%;
+  padding: 0;
+  transform: none;
+  background: rgba(8, 11, 24, 0.72);
+  border: 2px solid rgba(140, 190, 255, 0.45);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.06s, background 0.1s;
+}
+.tb:hover, .tb:focus-visible { transform: none; box-shadow: none; background: rgba(8, 11, 24, 0.72); }
+.tb.down { transform: scale(0.9); background: rgba(40, 70, 140, 0.85); }
+.tb-icon { width: 52%; height: 52%; display: block; pointer-events: none; margin-bottom: 10%; }
+.tb-icon svg { width: 100%; height: 100%; display: block; }
+.tb-cd {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(rgba(3, 5, 12, 0.82) calc(var(--cd, 0) * 360deg), transparent 0);
+  pointer-events: none;
+}
+.tb-cd-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-style: normal;
+  font-size: calc(var(--tu, 56px) * 0.3);
+  text-shadow: 0 0 4px #000, 0 0 2px #000;
+  pointer-events: none;
+}
+.tb-label {
+  position: absolute;
+  bottom: 9%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--ui);
+  font-style: normal;
+  font-weight: 800;
+  font-size: calc(var(--tu, 56px) * 0.17);
+  letter-spacing: 0.1em;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+.tb.ready { border-color: rgba(94, 200, 255, 0.9); box-shadow: 0 0 10px rgba(94, 200, 255, 0.35); }
+.tb.cooling .tb-icon { opacity: 0.3; }
+.tb-attack { border-color: rgba(255, 90, 110, 0.75); background: radial-gradient(circle, rgba(170, 20, 44, 0.55), rgba(8, 11, 24, 0.8)); }
+.tb-attack:hover, .tb-attack:focus-visible { background: radial-gradient(circle, rgba(170, 20, 44, 0.55), rgba(8, 11, 24, 0.8)); }
+.tb-attack .tb-label { font-size: calc(var(--tu, 56px) * 0.2); }
+.tb-ult { border-color: rgba(255, 36, 64, 0.45); }
+.tb-ult.ready { border-color: var(--crimson); animation: ultslot 0.9s infinite alternate; }
+.tb-lock .tb-icon { width: 46%; height: 46%; }
+.tb-lock.on { border-color: var(--crimson); box-shadow: 0 0 12px rgba(255, 36, 64, 0.6); }
+.tb.denied { animation: tbdenied 0.35s; }
+@keyframes tbdenied {
+  0%, 100% { translate: 0 0; }
+  25% { translate: -5px 0; border-color: var(--crimson); }
+  75% { translate: 5px 0; border-color: var(--crimson); }
+}
+.t-pause {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  transform: none;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.t-pause:hover, .t-pause:focus-visible { transform: none; }
+.t-pause i { display: block; width: 5px; height: 16px; background: #fff; }
+
+body.touch .abilities, body.touch .hint { display: none; }
+body.touch .wave-panel { right: calc(68px + env(safe-area-inset-right, 0px)); }
+body.touch .combo { top: calc(66px + env(safe-area-inset-top, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); }
+body.touch .combo .count { font-size: clamp(30px, 7vmin, 54px); }
+body.touch .boss-bar { top: clamp(72px, 20vh, 100px); width: min(48vw, 520px); }
+body.touch .lock-label { bottom: auto; top: calc(110px + env(safe-area-inset-top, 0px)); }
+
 @media (max-width: 900px) {
   .hint { display: none; }
   .slot .slot-name { display: none; }
+}
+@media (max-width: 600px) {
+  .wave-panel, body.touch .wave-panel { top: calc(88px + env(safe-area-inset-top, 0px)); left: 14px; right: auto; text-align: left; }
+  .wave-name { font-size: 14px; }
+  .wave-sub { font-size: 10px; }
+  body.touch .boss-bar { top: 136px; width: 86vw; }
+  body.touch .lock-label { top: 176px; }
+}
+@media (max-height: 520px) {
+  .logo { margin-bottom: 8px; }
+  .logo-icon { width: 44px; height: 44px; }
+  .logo h1 { font-size: 22px; }
+  .logo h2 { font-size: 11px; }
+  .select-label, .title-note, .card-stats, .card-weapon { display: none; }
+  .char-card { padding: 10px; gap: 10px; }
+  .card-portrait { width: 64px; height: 64px; }
+  .card-title { margin: 2px 0 6px; }
+  .mode-buttons { margin-top: 10px; }
+  .mode-buttons button { padding: 10px 14px; }
+  .title-wrap { padding: 10px 0; }
+  .touch-note { margin-top: 8px; padding: 6px 8px; }
 }
 @media (max-height: 640px) {
   .card-abilities { display: none; }

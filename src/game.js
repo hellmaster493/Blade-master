@@ -23,6 +23,7 @@ import { RiftWarden } from './enemies/boss.js';
 import { HUD } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
 import { ScreenFX } from './ui/screenfx.js';
+import { TouchControls } from './ui/touchControls.js';
 import { KAIRO, LOCK_ON_RANGE } from './config.js';
 import { clamp } from './core/mathutils.js';
 
@@ -31,6 +32,9 @@ const DEFAULT_SETTINGS = { volume: 0.7, muted: false, sensitivity: 1, shake: 1, 
 const MAX_STEP = 1 / 60;
 const MAX_SUBSTEPS = 6;
 
+// Phones and tablets: touch-first, lighter rendering defaults.
+const TOUCH_DEVICE = typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
+
 function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -38,7 +42,7 @@ function loadSettings() {
   } catch {
     /* storage unavailable */
   }
-  return { ...DEFAULT_SETTINGS };
+  return { ...DEFAULT_SETTINGS, bloom: !TOUCH_DEVICE };
 }
 
 export class Game {
@@ -61,7 +65,7 @@ export class Game {
 
     // ---- renderer
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TOUCH_DEVICE ? 1.5 : 1.75));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -85,6 +89,7 @@ export class Game {
     this.audio = new AudioEngine();
     this.combat = new CombatSystem(this.events);
     this.arena = new Arena(this.scene);
+    if (TOUCH_DEVICE) this.arena.sun.shadow.mapSize.set(1024, 1024);
     this.fx = new FX(this.scene);
     this.fx.initAfterimages((mat) => {
       const k = buildKairo(mat);
@@ -100,6 +105,7 @@ export class Game {
     this.fx.screen = this.screen;
     this.hud = new HUD(uiRoot.querySelector('#hud'), this);
     this.menus = new Menus(uiRoot, this);
+    this.touch = new TouchControls(uiRoot.querySelector('#touch'), this);
     this.cinematic = this.createCinematic();
     this.applySettings(this.settings, false);
     this.wireEvents();
@@ -178,6 +184,8 @@ export class Game {
   wireInput() {
     const input = this.input;
     input.attach(this.canvas);
+    input.onModeChange = (touch) => document.body.classList.toggle('touch', touch);
+    if (TOUCH_DEVICE) input.setTouchMode(true);
     input.onEscape = () => {
       if (this.state === 'playing' && !this.matchOver) this.pause();
       else if (this.state === 'paused') this.resume();
@@ -387,6 +395,11 @@ export class Game {
     this.fx.sparks(this.player.chestWorld(new THREE.Vector3()), { count: 10, speed: 6, colors: [COLORS.violet, 0xff6a7a], size: 0.06 });
   }
 
+  toggleTrainingAggro() {
+    this.trainingAggro = !this.trainingAggro;
+    this.hud.message(this.trainingAggro ? 'DUMMIES ATTACK: ON' : 'DUMMIES ATTACK: OFF', 'small-msg', 1);
+  }
+
   toggleLock() {
     const p = this.player;
     if (p.lockTarget && !p.lockTarget.isDefeated()) {
@@ -424,14 +437,13 @@ export class Game {
   frame(realDt, render = true) {
     this.debug.frames++;
     const input = this.input;
+    // before the simulation reads input, so held-button repeats land this frame
+    this.touch.update(realDt);
     if (this.state === 'playing' || this.state === 'over') {
       if (this.controllable) {
         if (input.wasPressed('KeyF')) this.toggleLock();
         if (input.wasPressed('Tab')) this.cycleLock();
-        if (input.wasPressed('KeyT') && this.mode === 'training') {
-          this.trainingAggro = !this.trainingAggro;
-          this.hud.message(this.trainingAggro ? 'DUMMIES ATTACK: ON' : 'DUMMIES ATTACK: OFF', 'small-msg', 1);
-        }
+        if (input.wasPressed('KeyT') && this.mode === 'training') this.toggleTrainingAggro();
       }
       if (input.wasPressed('KeyM')) {
         this.applySettings({ muted: !this.settings.muted });

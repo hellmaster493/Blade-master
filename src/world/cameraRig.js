@@ -100,6 +100,11 @@ export class CameraRig {
     }
     let desiredDist = this.zoom;
     let desiredFov = this.fovBase;
+    const portrait = (this.camera.aspect || 1.7) < 1;
+    if (portrait && !cin) {
+      desiredDist += 2.2;
+      desiredFov += 8;
+    }
     if (target && !cin && target.isBoss) {
       // pull back so a towering boss stays readable
       desiredDist = this.zoom + 3;

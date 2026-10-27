@@ -528,9 +528,14 @@ page.on('console', (m) => {
   if (m.type() === 'error') errors.push(m.text());
 });
 
+// ONLY=4 node tests/e2e.mjs runs a single numbered check (handy while iterating)
+const only = process.env.ONLY;
 let failed = 0;
+let ran = 0;
 const results = [];
 for (const t of tests) {
+  if (only && !t.name.startsWith(only + '.')) continue;
+  ran++;
   await page.goto(`http://localhost:${port}/index.html?noprewarm`);
   await page.waitForFunction('!!window.__RIFT__', null, { timeout: 30000 });
   await page.evaluate(HELPERS);
@@ -553,10 +558,98 @@ for (const t of tests) {
   console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${t.name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
 }
 
+// --------------------------------------------------------------------------- touch controls
+// A phone-sized, touch-enabled context driven with real touch events (CDP), not injected input.
+if (!only || only === '15') {
+  ran++;
+  const name = '15. Touchscreen controls: joystick, look-drag, held SLASH combo, skill buttons, pause';
+  const started = Date.now();
+  let res;
+  const mctx = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const mp = await mctx.newPage();
+  mp.on('pageerror', (e) => errors.push('[touch] ' + e.message));
+  mp.on('console', (m) => {
+    if (m.type() === 'error') errors.push('[touch] ' + m.text());
+  });
+  try {
+    const cdp = await mctx.newCDPSession(mp);
+    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id })) });
+    await mp.goto(`http://localhost:${port}/index.html?noprewarm`);
+    await mp.waitForFunction('!!window.__RIFT__', null, { timeout: 30000 });
+    const touchMode = await mp.evaluate(() => window.__RIFT__.game.input.touchMode);
+    await mp.tap('button[data-mode="training"]');
+    await mp.evaluate(() => {
+      const R = window.__RIFT__;
+      R.manual(true);
+      R.step(1 / 60, 20);
+      R.clearEnemies();
+      R.game.director.state = 'idle';
+    });
+    const S = (n) => mp.evaluate((n) => window.__RIFT__.step(1 / 60, n), n);
+    const center = (label) => mp.evaluate((l) => {
+      const b = [...document.querySelectorAll('.tb')].find((x) => x.getAttribute('aria-label') === l);
+      const r = b.getBoundingClientRect();
+      return [r.x + r.width / 2, r.y + r.height / 2];
+    }, label);
+    const z0 = await mp.evaluate(() => window.__RIFT__.game.player.position.z);
+    await touch('touchStart', [[140, 300, 1]]);
+    await touch('touchMove', [[140, 240, 1]]);
+    await S(30);
+    await touch('touchEnd', []);
+    await S(20);
+    const moved = (await mp.evaluate(() => window.__RIFT__.game.player.position.z)) - z0;
+    const yaw0 = await mp.evaluate(() => window.__RIFT__.game.cameraRig.yaw);
+    await touch('touchStart', [[600, 150, 2]]);
+    await touch('touchMove', [[520, 150, 2]]);
+    await S(2);
+    await touch('touchEnd', []);
+    const yawDelta = (await mp.evaluate(() => window.__RIFT__.game.cameraRig.yaw)) - yaw0;
+    await mp.evaluate(() => {
+      const R = window.__RIFT__;
+      const k = R.game.player;
+      k.position.set(0, 0, 0);
+      k.facing = 0;
+      R.spawn('ghoul', 0, 1.3, { passive: true, hp: 5000 });
+      R.step(1 / 60, 5);
+    });
+    const [ax, ay] = await center('SLASH');
+    await touch('touchStart', [[ax, ay, 3]]);
+    const seq = [];
+    for (let i = 0; i < 100; i++) {
+      await S(1);
+      const m = await mp.evaluate(() => (window.__RIFT__.game.player.act.move || {}).id || '-');
+      if (seq[seq.length - 1] !== m) seq.push(m);
+    }
+    await touch('touchEnd', []);
+    await S(50);
+    const [qx, qy] = await center('Q');
+    await touch('touchStart', [[qx, qy, 4]]);
+    await S(1);
+    await touch('touchEnd', []);
+    await S(2);
+    const qMove = await mp.evaluate(() => (window.__RIFT__.game.player.act.move || {}).id || null);
+    await S(60);
+    await mp.tap('.t-pause');
+    await S(1);
+    const paused = await mp.evaluate(() => window.__RIFT__.game.state);
+    const scrollW = await mp.evaluate(() => document.documentElement.scrollWidth);
+    const combo = seq.filter((m) => m !== '-');
+    const ok = touchMode && moved > 2 && yawDelta > 0.15 && combo.slice(0, 3).join() === 'quickDraw,crosswind,galeBreaker' && qMove === 'crescent' && paused === 'paused' && scrollW === 844;
+    res = { ok, info: `touch mode auto=${touchMode}, joystick moved ${moved.toFixed(2)} m, look-drag yaw +${yawDelta.toFixed(2)} rad, held SLASH → ${combo.join(' › ')}, Q → ${qMove}, pause → ${paused}, no sideways scroll=${scrollW === 844}` };
+    await mp.screenshot({ path: path.join(OUT, '15.png') });
+  } catch (e) {
+    res = { ok: false, info: 'threw: ' + e.message };
+  }
+  await mctx.close();
+  if (!res.ok) failed++;
+  console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
+}
+
 const errOk = errors.length === 0;
-console.log(`${errOk ? 'PASS' : 'FAIL'}  14. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
+ran++;
+console.log(`${errOk ? 'PASS' : 'FAIL'}  16. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
 if (!errOk) failed++;
-console.log(`\n${tests.length + 1 - failed}/${tests.length + 1} checks passed. Screenshots: ${path.relative(process.cwd(), OUT)}/`);
+console.log(`\n${ran - failed}/${ran} checks passed. Screenshots: ${path.relative(process.cwd(), OUT)}/`);
 await browser.close();
 server.close();
 process.exit(failed ? 1 : 0);

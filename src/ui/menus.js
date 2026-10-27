@@ -41,6 +41,10 @@ export class Menus {
     on('[data-action="resume"]', () => g.resume());
     on('[data-action="restart"]', () => g.startMatch(g.mode));
     on('[data-action="quit"]', () => g.quitToTitle());
+    on('[data-action="aggro"]', () => {
+      g.toggleTrainingAggro();
+      this.syncAggro();
+    });
     on('[data-action="settings"]', (b) => this.open(this.settings, b.closest('.screen')));
     on('[data-action="controls"]', (b) => this.open(this.controls, b.closest('.screen')));
     on('[data-action="back"]', () => this.back());
@@ -107,7 +111,14 @@ export class Menus {
 
   showPause() {
     this.hideAll();
+    this.syncAggro();
     this.pause.classList.remove('hidden');
+  }
+
+  syncAggro() {
+    const b = this.pause.querySelector('[data-action="aggro"]');
+    b.classList.toggle('hidden', this.game.mode !== 'training');
+    b.textContent = `Dummies attack: ${this.game.trainingAggro ? 'ON' : 'OFF'}`;
   }
 
   showResults(victory, stats) {

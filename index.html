@@ -26,6 +26,7 @@
     <div id="fx-letterbox-bottom" class="letterbox"></div>
 
     <div id="hud" class="hidden"></div>
+    <div id="touch" class="hidden"></div>
 
     <!-- Title / character select -->
     <section id="title-screen" class="screen">
@@ -64,7 +65,7 @@
           <button data-action="settings">Settings</button>
         </div>
         <p class="title-note">Pick a mode to start · audio begins on your first click · click the arena to capture the mouse</p>
-        <p class="touch-note">Rift Arena needs a keyboard and mouse. Open it on a desktop browser to play.</p>
+        <p class="touch-note"><b>Touch controls:</b> left thumb moves · drag the right side to look · hold SLASH to combo. Landscape works best.</p>
       </div>
     </section>
 
@@ -73,6 +74,7 @@
         <h3>PAUSED</h3>
         <button data-action="resume" class="primary">Resume</button>
         <button data-action="restart">Restart</button>
+        <button data-action="aggro" class="training-only">Dummies attack: OFF</button>
         <button data-action="settings">Settings</button>
         <button data-action="controls">Controls</button>
         <button data-action="quit">Quit to Title</button>
@@ -108,6 +110,9 @@
           <tr><td>T</td><td>Training: toggle dummy attacks</td></tr>
           <tr><td>M</td><td>Mute</td></tr>
           <tr><td>Esc</td><td>Pause</td></tr>
+          <tr class="touch-row"><td>Touch: left thumb</td><td>Floating joystick — push further to run</td></tr>
+          <tr class="touch-row"><td>Touch: drag right side</td><td>Rotate the camera</td></tr>
+          <tr class="touch-row"><td>Touch: buttons</td><td>SLASH (hold to keep the combo going), DASH, Q, E, JUMP, ULT, LOCK · ❚❚ pauses</td></tr>
         </table>
         <button data-action="back">Back</button>
       </div>

@@ -21,6 +21,10 @@ export class Input {
     this.canvas = null;
     this.rightDrag = false;
     this.lastLockLossTime = -1;
+    // Analog movement from the touch joystick: x = right, y = forward, both -1..1.
+    this.analog = { x: 0, y: 0, active: false };
+    this.touchMode = false;
+    this.onModeChange = null;
     // Callbacks set by the game.
     this.onEscape = null;
     this.onFocusLost = null;
@@ -45,6 +49,8 @@ export class Input {
         if (this.onEscape) this.onEscape();
         return;
       }
+      // a physical keyboard on a touch device switches back to keyboard + mouse controls
+      if (this.touchMode && GAME_KEYS.has(e.code)) this.setTouchMode(false);
       if (!this.enabled) return;
       if (GAME_KEYS.has(e.code)) e.preventDefault();
       if (!e.repeat && !this.down.has(e.code)) this.pressed.add(e.code);
@@ -60,7 +66,7 @@ export class Input {
         this.rightDrag = true;
         return;
       }
-      if (e.button !== 0) return;
+      if (e.button !== 0 || this.touchMode) return;
       if (!this.pointerLocked && !this.lockFailed && this.supportsPointerLock()) {
         // First click captures the mouse rather than attacking.
         this.requestPointerLock();
@@ -108,6 +114,11 @@ export class Input {
       if (!justExited || this.lockErrors >= 3) this.lockFailed = true;
     });
 
+    // any touch anywhere switches the game to on-screen controls
+    add(window, 'pointerdown', (e) => {
+      if (e.pointerType === 'touch' && !this.touchMode) this.setTouchMode(true);
+    }, true);
+
     add(window, 'blur', () => this._focusLost());
     add(document, 'visibilitychange', () => {
       if (document.hidden) this._focusLost();
@@ -124,8 +135,17 @@ export class Input {
     return !!(this.canvas && this.canvas.requestPointerLock);
   }
 
+  setTouchMode(on) {
+    if (this.touchMode === on) return;
+    this.touchMode = on;
+    if (on) this.exitPointerLock();
+    this.analog.x = this.analog.y = 0;
+    this.analog.active = false;
+    if (this.onModeChange) this.onModeChange(on);
+  }
+
   requestPointerLock() {
-    if (!this.supportsPointerLock() || this.pointerLocked) return;
+    if (this.touchMode || !this.supportsPointerLock() || this.pointerLocked) return;
     try {
       const result = this.canvas.requestPointerLock();
       if (result && typeof result.catch === 'function') {
@@ -187,5 +207,8 @@ export class Input {
     this.mouseDY = 0;
     this.wheel = 0;
     this.rightDrag = false;
+    this.analog.x = this.analog.y = 0;
+    this.analog.active = false;
+    if (this.onClear) this.onClear();
   }
 }

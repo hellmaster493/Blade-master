@@ -36,6 +36,20 @@ You need a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari). Pick *
 
 Settings (saved locally): master volume, mute, mouse sensitivity, screen-shake strength and bloom on/off.
 
+### Touchscreen
+
+Touch controls switch on by themselves on phones and tablets, or the first time you touch the screen. They switch back if you press a key on a physical keyboard. Landscape works best, but portrait is supported too, with a wider camera.
+
+| Touch | Action |
+|---|---|
+| **Left thumb** | Floating joystick. Push further to run |
+| **Drag the right side** | Rotate the camera. You can move and look at the same time |
+| **SLASH** (big button) | Attack. Hold it to keep the combo going |
+| **DASH / Q / E / JUMP / ULT / LOCK** | Same as Shift / Q / E / Space / R / F. Buttons show cooldown sweeps |
+| **❚❚** | Pause. The pause menu also toggles dummy attacks in Training |
+
+Touch devices start with bloom off, a 1.5× pixel-ratio cap and smaller shadow maps for performance. You can turn bloom back on in Settings.
+
 ## Kairo — stats and abilities
 
 | Stat | Value |
@@ -103,7 +117,7 @@ src/characters/kairo/
 src/enemies/                   enemy base, ghoul, caster, boss, projectiles, wave director
 src/fx/                        pooled particles, debris, sword trail, slash arcs, rings, telegraphs, flashes, afterimages
 src/world/                     arena, camera rig, cel-shading/outline materials, canvas textures
-src/ui/                        HUD, menus, screen effects, original SVG icons/portrait
+src/ui/                        HUD, menus, touch controls, screen effects, original SVG icons/portrait
 tests/e2e.mjs                  automated browser tests (npm test)
 dev/poses.html, dev/viewer.html  pose/model inspection pages for development
 ```
@@ -123,7 +137,7 @@ dev/poses.html, dev/viewer.html  pose/model inspection pages for development
 npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwright install chromium
 ```
 
-`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **14/14** checks:
+`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **16/16** checks (`ONLY=<n> npm test` runs a single one):
 
 1. Kairo appears (multi-part model, about 1.88 m tall, all joints present)
 2. Sword parented to the hand at a constant distance; during a cut the tip sweeps in front and the edge leads the swing
@@ -138,7 +152,8 @@ npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwr
 11. Restarting mid-ultimate leaves no effects, cinematic state or stuck flags; pause freezes time
 12. A full boss fight (phase 2 included) ends in VICTORY with the sword sheathed; the defeat flow works; input is ignored after the game ends
 13. FX pools stay bounded, the scene-graph object count is unchanged after heavy use, and a simulation step takes about 1 ms
-14. No runtime or console errors
+15. Touchscreen, driven with real touch events in a phone-sized context: the joystick moves, dragging turns the camera, holding SLASH chains Quick Draw › Crosswind › Gale Breaker, the Q button casts, the pause button pauses, and nothing scrolls sideways
+16. No runtime or console errors
 
 Screenshots from each test go to `tests/output/`.
 
@@ -149,7 +164,7 @@ Screenshots from each test go to `tests/output/`.
 - Feet are phase-locked when running, but dashes and attack lunges still slide a little.
 - Real-GPU frame rate hasn't been measured: the test environment renders with a software GPU (SwiftShader). Draw calls are about 490 in the boss wave and about 640 at the busiest point of the ultimate. If performance is a problem, turn off **Bloom** in Settings.
 - Audio is synthesized (WebAudio). It's functional and distinct per action, but it isn't studio sound design.
-- Keyboard and mouse only. There's no gamepad support.
+- Touch controls have only been tested in an emulated phone (Chromium mobile emulation with real touch events), not on a physical device. There's no gamepad support.
 
 ## Credits
 
