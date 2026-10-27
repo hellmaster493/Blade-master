@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anime Legends: Rift Arena — Kairo, The Blade Master</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game" tabindex="0"></canvas>
+
+  <div id="ui">
+    <div id="fx-hurt"></div>
+    <div id="fx-vignette"></div>
+    <canvas id="fx-speedlines"></canvas>
+    <div id="fx-flash"></div>
+    <div id="fx-letterbox-top" class="letterbox"></div>
+    <div id="fx-letterbox-bottom" class="letterbox"></div>
+
+    <div id="hud" class="hidden"></div>
+
+    <!-- Title / character select -->
+    <section id="title-screen" class="screen">
+      <div class="title-wrap">
+        <header class="logo">
+          <div class="logo-icon"></div>
+          <div>
+            <h1>ANIME LEGENDS</h1>
+            <h2>RIFT ARENA</h2>
+          </div>
+        </header>
+        <div class="select-label">CHOOSE YOUR FIGHTER</div>
+        <div class="char-card selected">
+          <div class="card-portrait"></div>
+          <div class="card-body">
+            <div class="card-name">KAIRO</div>
+            <div class="card-title">THE CRIMSON TEMPEST</div>
+            <div class="card-tags"><span>The Blade Master</span><span>High-speed melee</span><span class="adv">Difficulty: Advanced</span></div>
+            <div class="card-weapon">Weapon — <b>Kurokaze, The Black Gale</b></div>
+            <div class="card-stats"></div>
+            <ul class="card-abilities">
+              <li><i data-icon="combo"></i><b>LMB</b><span>Blade Combo — Quick Draw › Crosswind › Gale Breaker</span></li>
+              <li><i data-icon="crescent"></i><b>Q</b><span>Crescent Slash</span><em>4s</em></li>
+              <li><i data-icon="cyclone"></i><b>E</b><span>Cyclone Cut</span><em>8s</em></li>
+              <li><i data-icon="ultimate"></i><b>R</b><span>Crimson Tempest</span><em>full energy</em></li>
+              <li><i data-icon="dash"></i><b>Shift</b><span>Gale Step dash</span><em>0.85s · i-frames</em></li>
+            </ul>
+          </div>
+        </div>
+        <div class="mode-buttons">
+          <button data-mode="assault" class="primary">RIFT ASSAULT<small>3 waves · boss fight</small></button>
+          <button data-mode="training">TRAINING GROUNDS<small>dummies · auto-charging ultimate</small></button>
+        </div>
+        <div class="title-links">
+          <button data-action="controls">Controls</button>
+          <button data-action="settings">Settings</button>
+        </div>
+        <p class="title-note">Pick a mode to start · audio begins on your first click · click the arena to capture the mouse</p>
+      </div>
+    </section>
+
+    <section id="pause-menu" class="screen hidden">
+      <div class="panel">
+        <h3>PAUSED</h3>
+        <button data-action="resume" class="primary">Resume</button>
+        <button data-action="restart">Restart</button>
+        <button data-action="settings">Settings</button>
+        <button data-action="controls">Controls</button>
+        <button data-action="quit">Quit to Title</button>
+      </div>
+    </section>
+
+    <section id="settings-panel" class="screen hidden">
+      <div class="panel">
+        <h3>SETTINGS</h3>
+        <label class="range">Master volume <input type="range" id="set-volume" min="0" max="100" /><span id="lbl-volume"></span></label>
+        <label class="check"><input type="checkbox" id="set-mute" /> Mute all sound (M)</label>
+        <label class="range">Mouse sensitivity <input type="range" id="set-sens" min="25" max="300" /><span id="lbl-sens"></span></label>
+        <label class="range">Screen shake <input type="range" id="set-shake" min="0" max="100" /><span id="lbl-shake"></span></label>
+        <label class="check"><input type="checkbox" id="set-bloom" /> Bloom glow (turn off for better performance)</label>
+        <button data-action="back">Back</button>
+      </div>
+    </section>
+
+    <section id="controls-panel" class="screen hidden">
+      <div class="panel wide">
+        <h3>CONTROLS</h3>
+        <table class="controls">
+          <tr><td>W A S D</td><td>Move (camera-relative; strafe around the target when locked on)</td></tr>
+          <tr><td>Mouse</td><td>Rotate camera (click the arena to capture; right-drag also works) · Wheel zoom</td></tr>
+          <tr><td>Left mouse / J</td><td>Blade combo: Quick Draw › Crosswind › Gale Breaker (press during a swing to chain)</td></tr>
+          <tr><td>Q</td><td>Crescent Slash — lunging wide arc, long reach (4s)</td></tr>
+          <tr><td>E</td><td>Cyclone Cut — spinning 360° strikes + crimson burst (8s)</td></tr>
+          <tr><td>R</td><td>Crimson Tempest — ultimate, needs full energy</td></tr>
+          <tr><td>Shift</td><td>Gale Step dash with invulnerability; dodge just as an attack lands for PERFECT DODGE</td></tr>
+          <tr><td>Space</td><td>Jump</td></tr>
+          <tr><td>F / Tab</td><td>Lock on to nearest enemy / cycle targets</td></tr>
+          <tr><td>Arrow keys</td><td>Rotate camera (keyboard)</td></tr>
+          <tr><td>T</td><td>Training: toggle dummy attacks</td></tr>
+          <tr><td>M</td><td>Mute</td></tr>
+          <tr><td>Esc</td><td>Pause</td></tr>
+        </table>
+        <button data-action="back">Back</button>
+      </div>
+    </section>
+
+    <section id="results" class="screen hidden">
+      <div class="panel">
+        <h3 class="res-title"></h3>
+        <p class="res-sub"></p>
+        <div class="res-stats"></div>
+        <button data-action="restart" class="primary">Play Again</button>
+        <button data-action="quit">Title Screen</button>
+      </div>
+    </section>
+
+    <div id="loading">LOADING THE RIFT…</div>
+    <div id="fatal" class="hidden"></div>
+  </div>
+
+  <noscript>Anime Legends: Rift Arena needs JavaScript and WebGL.</noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

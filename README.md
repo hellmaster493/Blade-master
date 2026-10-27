@@ -1,0 +1,156 @@
+# Anime Legends: Rift Arena — KAIRO, THE BLADE MASTER
+
+A 3D anime action arena built with Three.js. You play **Kairo — The Crimson Tempest**, an original high-speed swordsman who fights with the katana **Kurokaze — The Black Gale**. The game has a three-hit sword combo, two special abilities, a six-stage ultimate, a dash with invulnerability and perfect dodges, three waves of enemies and a boss.
+
+Everything is procedural: the character, sword, enemies, arena, effects, UI art and audio are all generated in code. There are no downloaded models, textures or sound files, and the game works offline.
+
+## Run it
+
+ES modules have to be served over HTTP, so opening `index.html` as a file won't work.
+
+```bash
+npm start            # zero-dependency Node server → http://localhost:8080
+# or: node server.js 3000
+# or any static server, e.g. python3 -m http.server 8080
+```
+
+You need a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari). Pick **Rift Assault** (three waves and a boss) or **Training Grounds** (respawning dummies and an ultimate that charges itself). Click the arena to capture the mouse.
+
+## Controls
+
+| Input | Action |
+|---|---|
+| **W A S D** | Move relative to the camera. While locked on: strafe around the target and back-pedal |
+| **Mouse** | Rotate the camera (pointer lock; right-drag also works). Wheel zooms |
+| **Left mouse** (or **J**) | Blade combo: Quick Draw › Crosswind › Gale Breaker. Press during a swing to chain |
+| **Q** | Crescent Slash |
+| **E** | Cyclone Cut |
+| **R** | Crimson Tempest (ultimate; needs full energy) |
+| **Shift** | Gale Step dash with i-frames. Dash just as an attack lands for a **PERFECT DODGE** |
+| **Space** | Jump |
+| **F** / **Tab** | Lock on to the nearest enemy / cycle targets |
+| **Arrow keys** | Rotate the camera from the keyboard |
+| **T** | Training only: toggle whether the dummies attack |
+| **M** | Mute |
+| **Esc** | Pause (Resume, Restart, Settings, Controls, Quit) |
+
+Settings (saved locally): master volume, mute, mouse sensitivity, screen-shake strength and bloom on/off.
+
+## Kairo — stats and abilities
+
+| Stat | Value |
+|---|---|
+| Health | 1000 |
+| Run speed | 9.2 m/s (7.4 m/s strafing while locked on) |
+| Jump | 12.6 m/s launch, about 2.1 m high, with extra fall gravity so it doesn't feel floaty |
+| Ultimate energy | 100. Earned per hit (+3 to +6), per perfect dodge (+15) and from damage taken |
+
+Every attack has a wind-up, an active hit window and a recovery. A hit lands at most once per target per strike.
+
+| Move | Key | Timing (wind-up / active / total) | Damage | Notes |
+|---|---|---|---|---|
+| Quick Draw | LMB ×1 | 0.075 / 0.075–0.16 / 0.42 s | 45 | Fast horizontal cut, narrow blue-white trail, small lunge |
+| Crosswind | LMB ×2 | 0.095 / 0.095–0.19 / 0.50 s | 60 | Diagonal cut in the opposite direction, longer trail |
+| Gale Breaker | LMB ×3 | 0.175 / 0.175–0.30 / 0.72 s | 110 | Wide finisher: hit-stop, launch, crimson and blue burst |
+| Crescent Slash | Q | 0.13 / 0.13–0.34 / 0.66 s | 140 | Steps forward about 2.4 m. A crescent wave travels out to 6.8 m and hits each enemy when it reaches them. Multi-target. **4 s cooldown** |
+| Cyclone Cut | E | 3 × 360° strikes, then a burst at 0.73 s / 1.02 s total | 3 × 48 + 70 | Spin with a little steering, ground shockwave, crimson flash. **8 s cooldown** |
+| Gale Step (dash) | Shift | 0.24 s dash with 0.22 s i-frames | — | Perfect-dodge window: first 0.16 s. **0.85 s cooldown** |
+| **Crimson Tempest** | R | 3.45 s sequence | 8 × 42 + 360 + 120 AoE | See below. Needs 100 energy and can't re-trigger while active |
+
+Damage varies by ±6%. Inputs are buffered for 0.32 s. Combo follow-ups start at each swing's cancel point, and a dash can cancel a swing's recovery.
+
+### Crimson Tempest stages
+
+| Stage | Time | What happens |
+|---|---|---|
+| 1 · Focus | 0–0.75 s | Low stance. The arena dims, a letterbox and crimson vignette appear, and crimson particles orbit the blade |
+| 2 · Flash Step | 0.75–0.98 s | Kairo moves (interpolated, not teleported, max 16 m) to just in front of the target, leaving blue and crimson afterimages and speed lines |
+| 3 · Thousand Cuts | 0.98–2.18 s | Eight slashes on alternating swing planes. Each has its own hit window, impact flash and slash arc around the target |
+| 4 · Final Sever | 2.18–2.58 s | Overhead vertical cut that releases a huge crescent energy wave (9 m range) |
+| 5 · Impact | 2.58 s | Ground shockwave (6.5 m AoE), camera shake, hit-stop, a shower of particles and debris |
+| 6 · Recovery | 2.75–3.45 s | A flick of the blade, the lighting comes back, and Kairo returns to his combat stance |
+
+Kairo is invulnerable during the sequence. It targets the locked-on enemy, otherwise the best enemy in front. If the target dies, the remaining cuts simply miss. A watchdog ends the sequence after 5 s no matter what, and `abort()` cleans up on restart or game over.
+
+## Enemies
+
+- **Rift Ghoul**: melee. Telegraphed claw swipe and leaping pounce. Staggers on every hit.
+- **Shade Caster**: floating, keeps its distance, fires dodgeable rift bolts.
+- **Gorvath, the Rift Warden** (boss, 3200 HP): uses poise, so it only staggers when its guard breaks. Attacks: Rift Cleave, Ground Slam (circle telegraph) and Rift Charge (lane telegraph). Below 50% HP it enrages, attacking faster and summoning two ghouls.
+
+Every enemy attack shows a red ground telegraph that fills up until it lands. An attack-token system limits how many melee enemies swing at once. Waves: 3 ghouls → 3 ghouls + 2 casters → boss + 2 ghouls. You heal 15% between waves.
+
+## Project structure
+
+```
+index.html, css/style.css      UI shell, HUD/menu styling
+server.js                      zero-dependency static server (npm start)
+vendor/three/                  Three.js r170 (MIT) + bloom post-processing passes
+src/main.js                    boot + window.__RIFT__ debug/test API
+src/game.js                    renderer, single game loop, states, hit-stop/slow-mo, events
+src/config.js                  all tunables (stats, damage, cooldowns)
+src/core/                      input, procedural audio, cooldowns, events, math/easing
+src/combat/combat.js           shared Combatant interface, sector/radius queries, HitTracker
+src/characters/rig.js          analytic two-bone IK + springs
+src/characters/meshMerge.js    per-joint static mesh merging (fewer draw calls)
+src/characters/kairo/
+  kairoModel.js                procedural Kairo + Kurokaze (faceted curved blade, crimson tsuba, wrapped tsuka)
+  pose.js                      pose channels, swing-plane sword description, keyframes
+  kairoAnimator.js             locomotion synthesis, IK, sword orientation, coat/ponytail springs
+  kairoMoves.js                combo / Crescent / Cyclone / reactions (timings, hits, FX cues)
+  kairoUltimate.js             Crimson Tempest stage machine
+  kairo.js                     controller: states, movement, buffering, hits, dash, perfect dodge
+src/enemies/                   enemy base, ghoul, caster, boss, projectiles, wave director
+src/fx/                        pooled particles, debris, sword trail, slash arcs, rings, telegraphs, flashes, afterimages
+src/world/                     arena, camera rig, cel-shading/outline materials, canvas textures
+src/ui/                        HUD, menus, screen effects, original SVG icons/portrait
+tests/e2e.mjs                  automated browser tests (npm test)
+dev/poses.html, dev/viewer.html  pose/model inspection pages for development
+```
+
+### How it works
+
+- **Combat interface:** anything that can be hit implements `isDefeated()`, `isInvulnerable()`, `receiveDamage(hit)` and `applyKnockback(dir, force, lift)`. Hits go through `CombatSystem.applyHit()`, which checks defeat, invulnerability and the per-strike `HitTracker`. Queries test range, angle and a vertical band, and never reach behind the attacker unless the move is 360°.
+- **Frame-rate independence:** a hit window counts if it overlapped the current step (`prevT <= t1 && t >= t0`). The simulation is sub-stepped at 60 Hz or finer. The tests produce the same hits at 20, 60 and 144 fps.
+- **Animation:** there are no animation assets. Each pose is a set of channels: torso rotations, IK targets for the feet and off hand, and a *swing plane* for the sword (plane tilt, angle along the arc, reach, edge roll). Interpolating along the plane sweeps the blade through a real arc with the cutting edge leading, and the same plane drives the slash-arc VFX and the hit sector. Running feet are phase-locked to distance travelled to reduce sliding.
+- **Sword attachment:** Kurokaze is parented to the right-hand joint, and IK places the hand and orients the blade every frame. For victory, it's re-parented into the saya at the left hip.
+- **Effects:** every effect comes from a fixed-capacity pool (1800 sparks, 500 dust, 140 debris, 26 arcs, 18 rings, 16 telegraphs, 30 flashes, 12 afterimage rigs). Pools clear on restart and nothing is allocated per frame. Shaders are compiled at startup so the first ultimate doesn't stall.
+- **Hit-stop / slow-mo:** both scale simulation time, while the camera and UI keep running in real time. Cooldowns use game time.
+
+## Testing
+
+```bash
+npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwright install chromium
+```
+
+`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **14/14** checks:
+
+1. Kairo appears (multi-part model, about 1.88 m tall, all joints present)
+2. Sword parented to the hand at a constant distance; during a cut the tip sweeps in front and the edge leads the swing
+3. Movement, camera-relative direction, deceleration, jump and landing, lock-on strafing and facing
+4. Three-hit combo with buffering, one hit per swing, correct damage at 20, 60 and 144 fps
+5. Crescent Slash reaches 5.6 m, never hits behind, 4 s cooldown blocks a recast
+6. Cyclone Cut hits four surrounding enemies exactly 4 times each (3 strikes + burst)
+7. Ultimate runs Focus › Flash › Cuts › Sever › Impact › Recovery › done in about 3.5 s, about 830 damage over 10 controlled hits, no re-trigger, lighting restored
+8. Dash i-frames last exactly 0.22 s, dash spam is blocked, a perfect dodge gives +15 energy and no damage
+9. Cooldowns tick in game time and energy builds from hits
+10. An enemy is defeated, gets its kill event and is removed
+11. Restarting mid-ultimate leaves no effects, cinematic state or stuck flags; pause freezes time
+12. A full boss fight (phase 2 included) ends in VICTORY with the sword sheathed; the defeat flow works; input is ignored after the game ends
+13. FX pools stay bounded, the scene-graph object count is unchanged after heavy use, and a simulation step takes about 1 ms
+14. No runtime or console errors
+
+Screenshots from each test go to `tests/output/`.
+
+## Known limitations
+
+- The character is built from layered low-poly primitives with cel shading and outlines, not a sculpted, rigged model. Animation is procedural (IK and keyed poses) rather than motion-captured.
+- Kurokaze is held one-handed. There's no IK for a two-handed grip.
+- Feet are phase-locked when running, but dashes and attack lunges still slide a little.
+- Real-GPU frame rate hasn't been measured: the test environment renders with a software GPU (SwiftShader). Draw calls are about 490 in the boss wave and about 640 at the busiest point of the ultimate. If performance is a problem, turn off **Bloom** in Settings.
+- Audio is synthesized (WebAudio). It's functional and distinct per action, but it isn't studio sound design.
+- Keyboard and mouse only. There's no gamepad support.
+
+## Credits
+
+Original design, code and procedural assets for this project. Three.js © three.js authors (MIT), vendored in `vendor/three/`.

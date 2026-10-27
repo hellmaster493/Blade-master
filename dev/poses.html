@@ -1,0 +1,74 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Kairo poses</title>
+<style>html,body{margin:0;background:#1a1d2a;overflow:hidden}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/build/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { buildKairo } from '../src/characters/kairo/kairoModel.js';
+import { KairoAnimator } from '../src/characters/kairo/kairoAnimator.js';
+import { createPose, STANCE, setPose, sampleKeys } from '../src/characters/kairo/pose.js';
+import * as MOVES from '../src/characters/kairo/kairoMoves.js';
+window.MOVES = MOVES;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a2f44);
+scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x302838, 1.6));
+const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(2, 4, 3); scene.add(dl);
+const grid = new THREE.GridHelper(6, 12, 0x555577, 0x3a3f55); scene.add(grid);
+const k = buildKairo();
+const root = new THREE.Object3D();
+root.add(k.root);
+scene.add(root);
+const anim = new KairoAnimator(k);
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 100);
+window.views = [];
+window.show = (partial, opts = {}) => {
+  const pose = createPose(STANCE);
+  if (partial) setPose(pose, partial);
+  const vel = new THREE.Vector3(...(opts.vel || [0, 0, 0]));
+  for (let i = 0; i < (opts.frames || 30); i++) {
+    if (opts.vel) root.position.addScaledVector(vel, 1/60);
+    anim.update(1 / 60, { root, vel, grounded: opts.grounded !== false, landT: 0, locked: false, action: partial ? pose : null, weight: partial ? 1 : 0 });
+  }
+};
+window.cam = (yaw, y = 1.1, dist = 4.2, ty = 1.0) => {
+  const c = root.position;
+  camera.position.set(c.x + Math.sin(yaw) * dist, y, c.z + Math.cos(yaw) * dist);
+  camera.lookAt(c.x, ty, c.z);
+  renderer.render(scene, camera);
+};
+window.multi = (yaws = [0.5, 1.9, 3.6], y = 1.2, dist = 4.6, ty = 1.0) => {
+  const w = innerWidth / yaws.length, h = innerHeight;
+  renderer.setScissorTest(true);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  yaws.forEach((yaw, i) => {
+    renderer.setViewport(i * w, 0, w, h); renderer.setScissor(i * w, 0, w, h);
+    const c = root.position;
+    camera.position.set(c.x + Math.sin(yaw) * dist, y, c.z + Math.cos(yaw) * dist);
+    camera.lookAt(c.x, ty, c.z);
+    renderer.render(scene, camera);
+  });
+  renderer.setScissorTest(false);
+};
+// Render a move at several times side by side from one camera.
+window.strip = (moveName, times, yaw = Math.PI + 0.5, y = 2.2, dist = 4.6) => {
+  const move = MOVES[moveName];
+  const w = innerWidth / times.length, h = innerHeight;
+  renderer.setScissorTest(true);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  const pose = createPose(STANCE);
+  times.forEach((t, i) => {
+    sampleKeys(move.keys, t, pose);
+    anim.update(1/60, { root, vel: new THREE.Vector3(), grounded: true, landT: 0, locked: false, action: pose, weight: 1 });
+    renderer.setViewport(i * w, 0, w, h); renderer.setScissor(i * w, 0, w, h);
+    camera.position.set(Math.sin(yaw) * dist, y, Math.cos(yaw) * dist);
+    camera.lookAt(0, 1.0, 0.6);
+    renderer.render(scene, camera);
+  });
+  renderer.setScissorTest(false);
+};
+window.ready = true;
+</script></body></html>
