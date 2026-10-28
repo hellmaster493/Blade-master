@@ -38,7 +38,7 @@ function gearSummary(def) {
   if (def.auraBurn) parts.push('AURA BURN');
   return parts.join(' · ');
 }
-const DEFAULT_SETTINGS = { volume: 0.7, muted: false, music: 0.6, musicOn: true, sensitivity: 1, shake: 1, bloom: true };
+const DEFAULT_SETTINGS = { volume: 0.7, muted: false, music: 0.6, musicOn: true, sensitivity: 1, shake: 1, bloom: true, map: 'rift' };
 const MAX_STEP = 1 / 60;
 const MAX_SUBSTEPS = 6;
 
@@ -102,6 +102,8 @@ export class Game {
     this.combat = new CombatSystem(this.events);
     this.arena = new Arena(this.scene);
     if (TOUCH_DEVICE) this.arena.sun.shadow.mapSize.set(1024, 1024);
+    this.renderer.toneMappingExposure = this.arena.load(this.settings.map).exposure || 1.15;
+    this.updatePixelScale();
     this.fx = new FX(this.scene);
     this.fx.initAfterimages((mat) => {
       const k = buildKairo(mat);
@@ -324,6 +326,27 @@ export class Game {
     }
   }
 
+  /** Switches arena map (title screen or between matches); remembered in settings. */
+  setMap(id) {
+    const def = this.arena.load(id);
+    this.renderer.toneMappingExposure = def.exposure || 1.15;
+    if (this.settings.map !== def.id) this.applySettings({ map: def.id });
+    // compile the new map's shaders now rather than on the first frame of a fight
+    try {
+      this.renderer.compile(this.scene, this.camera);
+    } catch {
+      /* compiled lazily instead */
+    }
+    if (this.menus) this.menus.syncMap();
+    return def;
+  }
+
+  /** Screen-space size factor for the weather particles (depends on canvas height and FOV). */
+  updatePixelScale() {
+    const h = this.renderer.getDrawingBufferSize(new THREE.Vector2()).y;
+    this.arena.setPixelScale(h / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)));
+  }
+
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -332,6 +355,7 @@ export class Game {
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
     this.screen.resize();
+    this.updatePixelScale();
   }
 
   /**
@@ -414,7 +438,9 @@ export class Game {
     this.input.clear();
     this.input.requestPointerLock();
     this.director.start(mode);
-    if (mode === 'training') this.hud.showBanner('TRAINING GROUNDS', 'Master the Blade');
+    const mapName = this.arena.map.name;
+    if (mode === 'training') this.hud.showBanner('TRAINING GROUNDS', mapName);
+    else this.hud.message(mapName, 'map-msg', 2.2);
     this.music.setMuffled(false);
     this.music.duck(false);
     this.music.setBoost(1);

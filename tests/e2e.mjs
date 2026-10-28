@@ -924,9 +924,90 @@ if (!only || only === '17') {
   console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
 }
 
+// --------------------------------------------------------------------------- maps
+// Every arena map builds, plays (movement, colliders, combat) and unloads without leaking.
+if (!only || only === '18') {
+  ran++;
+  const name = '18. Maps: the title picker switches the live arena; every map plays and unloads cleanly';
+  const started = Date.now();
+  let res;
+  try {
+    await page.goto(`http://localhost:${port}/index.html?noprewarm`);
+    await page.waitForFunction('!!window.__RIFT__', null, { timeout: 30000 });
+    await page.click('.map-card[data-map="sakura"]');
+    const picked = await page.evaluate(() => ({
+      map: window.__RIFT__.game.arena.map.id,
+      selected: document.querySelector('.map-card.selected').dataset.map,
+      saved: JSON.parse(localStorage.getItem('rift-arena-settings-v1') || '{}').map,
+    }));
+    await page.evaluate(HELPERS);
+    const r = await page.evaluate(() => {
+      const R = T.R;
+      const g = R.game;
+      const count = () => {
+        let n = 0;
+        g.scene.traverse(() => n++);
+        return n;
+      };
+      const mem = () => [g.renderer.info.memory.geometries, g.renderer.info.memory.textures];
+      const maps = [];
+      const snap = [];
+      for (const id of ['rift', 'sakura', 'neon', 'glacier', 'inferno', 'rift', 'sakura', 'rift']) {
+        R.map(id);
+        T.setup();
+        const k = T.k();
+        const m = { id: g.arena.map.id, colliders: g.arena.colliders.length, weather: g.arena.weather.length, sky: !!g.arena.sky.material.uniforms };
+        // run forward
+        R.press('KeyW');
+        T.run(0.5);
+        R.release('KeyW');
+        m.moved = +(k.position.z + 3).toFixed(2);
+        // a prop collider pushes Kairo out
+        const c = g.arena.colliders.find((x) => Math.hypot(x.x, x.z) < 24);
+        const d = Math.hypot(c.x, c.z);
+        k.position.set(c.x * (1 - 2.5 / d), 0, c.z * (1 - 2.5 / d));
+        g.cameraRig.yaw = Math.atan2(c.x - k.position.x, c.z - k.position.z); // W runs straight at it
+        let gap = Infinity;
+        R.press('KeyW');
+        T.run(0.6, 1 / 60, () => (gap = Math.min(gap, Math.hypot(k.position.x - c.x, k.position.z - c.z) - c.r - k.radius)));
+        R.release('KeyW');
+        m.gap = +gap.toFixed(3); // closest approach: reaches the prop but never passes into it
+        // a swing lands
+        k.position.set(0, 0, -3);
+        k.facing = 0;
+        const id2 = T.dummy(0, -1.6);
+        T.run(0.1);
+        R.tap('Mouse0');
+        T.run(0.6);
+        m.dmg = T.dmgTo(id2);
+        R.clearEnemies();
+        R.step(1 / 60, 2, true);
+        snap.push([id, count(), ...mem()]);
+        maps.push(m);
+      }
+      return { maps, snap };
+    });
+    const [, rift2, rift3] = r.snap.filter((x) => x[0] === 'rift');
+    const [sak1, sak2] = r.snap.filter((x) => x[0] === 'sakura');
+    const clean = rift2.join() === rift3.join() && sak1.join() === sak2.join();
+    const played = r.maps.every((m) => m.colliders > 0 && m.weather > 0 && m.sky && m.moved > 2 && m.gap > -0.02 && m.gap < 0.05 && m.dmg > 0);
+    const ok = picked.map === 'sakura' && picked.selected === 'sakura' && picked.saved === 'sakura' && played && clean
+      && new Set(r.maps.map((m) => m.id)).size === 5;
+    res = {
+      ok,
+      info: `picker → ${picked.map} (saved ${picked.saved}); ` + r.maps.slice(0, 5).map((m) => `${m.id}: ${m.colliders} props, moved ${m.moved} m, gap ${m.gap}, hit ${m.dmg}`).join(' | ') + `; revisit objects/geometries/textures rift ${rift2.slice(1).join('/')}=${rift3.slice(1).join('/')}, sakura ${sak1.slice(1).join('/')}=${sak2.slice(1).join('/')}`,
+    };
+    await page.evaluate(() => window.__RIFT__.map('rift'));
+  } catch (e) {
+    res = { ok: false, info: 'threw: ' + e.message };
+  }
+  if (!res.ok) failed++;
+  console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
+}
+
 const errOk = errors.length === 0;
 ran++;
-console.log(`${errOk ? 'PASS' : 'FAIL'}  18. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
+console.log(`${errOk ? 'PASS' : 'FAIL'}  19. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
 if (!errOk) failed++;
 console.log(`\n${ran - failed}/${ran} checks passed. Screenshots: ${path.relative(process.cwd(), OUT)}/`);
 await browser.close();

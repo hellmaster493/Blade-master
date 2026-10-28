@@ -61,6 +61,9 @@ function createDebugApi(game) {
     tap(code) {
       game.input.tap(code);
     },
+    map(id) {
+      return game.setMap(id).id;
+    },
     spawn(type, x, z, opts) {
       const e = game.director.spawn(type, x, z, opts);
       e.state = 'chase';

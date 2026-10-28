@@ -206,6 +206,7 @@ export class CameraRig {
       if (a > 1e-6 && disc >= 0) dist = Math.min(dist, Math.max(1.5, (-b + Math.sqrt(disc)) / (2 * a)));
     }
     for (const col of colliders) {
+      if (col.low) continue; // waist-high props (lanterns, AC units) pass under the camera
       // ray-circle in XZ
       const fx = focus.x - col.x;
       const fz = focus.z - col.z;

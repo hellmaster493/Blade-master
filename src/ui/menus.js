@@ -21,6 +21,13 @@ export class Menus {
     this.root.querySelector('.card-portrait').innerHTML = PORTRAIT;
     const icons = this.root.querySelectorAll('[data-icon]');
     icons.forEach((n) => (n.innerHTML = ICONS[n.dataset.icon] || ''));
+    // arena picker: choosing a map swaps the live 3D background behind the title screen
+    this.mapPicker = this.root.querySelector('.map-picker');
+    this.mapPicker.innerHTML = this.game.arena.maps
+      .map((m) => `<button type="button" class="map-card" data-map="${m.id}" role="radio" aria-checked="false">
+        <i style="background: linear-gradient(135deg, ${m.swatch[0]} 25%, ${m.swatch[1]})"></i><b>${m.name}</b><small>${m.tagline}</small></button>`)
+      .join('');
+    this.syncMap();
     const stats = this.root.querySelector('.card-stats');
     stats.innerHTML = `
       <div><span>Health</span><b>${KAIRO.maxHealth}</b></div>
@@ -38,6 +45,7 @@ export class Menus {
       fn(b);
     }));
     on('[data-mode]', (b) => g.startMatch(b.dataset.mode));
+    on('[data-map]', (b) => g.setMap(b.dataset.map));
     on('[data-action="resume"]', () => g.resume());
     on('[data-action="restart"]', () => g.startMatch(g.mode));
     on('[data-action="quit"]', () => g.quitToTitle());
@@ -85,6 +93,16 @@ export class Menus {
   }
 
   /** Title-screen music chip + settings checkbox reflect whether the soundtrack is playing. */
+  syncMap() {
+    const id = this.game.arena.map && this.game.arena.map.id;
+    if (!this.mapPicker) return;
+    for (const b of this.mapPicker.querySelectorAll('.map-card')) {
+      const on = b.dataset.map === id;
+      b.classList.toggle('selected', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+  }
+
   syncMusic() {
     const g = this.game;
     const chip = this.root.querySelector('.music-chip');
