@@ -516,46 +516,53 @@ test('13. Performance + memory hygiene: bounded FX pools, stable scene graph, fa
   return { ok, info: `scene objects ${r.n0}→${r.n1}, peak particles ${r.maxParticles}/${r.cap}, ${r.ms.toFixed(2)} ms per sim step (no render), fx idle=${JSON.stringify(r.fx)}` };
 });
 
-test('14. Gears: gauge from hits, awaken Gale Drive › Crimson Overdrive, buffs, super armor, echo wave, drain + release', async (page) => {
+test('14. Gears 1 › 4: each Gear is stronger with a bigger aura; burst, super armor, echo, aura burn, drain + release', async (page) => {
   const r = await page.evaluate(() => {
     T.setup();
     const k = T.k();
     const R = T.R;
+    const gv = k.gearVisuals;
     const out = {};
+    const aura = () => ({ h: +gv.auraHeight.toFixed(2), light: +gv.light.intensity.toFixed(1), ground: +gv.ground.scale.x.toFixed(2), on: gv.back.visible });
+    const fresh = (x, z) => {
+      R.clearEnemies();
+      k.position.set(0, 0, -3);
+      k.facing = 0;
+      R.game.cameraRig.yaw = 0;
+      const id = T.dummy(x, z);
+      T.run(0.1);
+      T.hits.length = 0;
+      return id;
+    };
     // Gear 1 baseline: run distance and a Quick Draw that feeds the gauge
     R.press('KeyW');
     T.run(0.6);
     R.release('KeyW');
     out.baseRun = k.position.z + 3;
     T.run(0.5);
-    k.position.set(0, 0, -3);
-    k.facing = 0;
-    let id = T.dummy(0, -1.6);
-    T.run(0.1);
+    let id = fresh(0, -1.6);
     const g0 = k.gearGauge;
     R.tap('Mouse0');
     T.run(1);
     out.gaugePerHit = k.gearGauge - g0;
+    out.aura1 = aura();
     // not enough gauge: denied, no state change
     R.tap('KeyG');
     T.run(0.05);
     out.deniedState = k.state;
     out.denied = T.events.filter((e) => e[0] === 'denied' && e[1] === 'gear').length;
-    // awaken Gear 2: invulnerable during the burst, the burst shockwave hurts nearby enemies
-    R.clearEnemies();
-    k.position.set(0, 0, -3);
-    id = T.dummy(0, -1);
-    T.run(0.1);
-    T.hits.length = 0;
-    k.gearGauge = 300;
+    // Gear 2: invulnerable awakening, a burst that hurts nearby enemies, then faster and stronger
+    id = fresh(0, -1);
+    k.gearGauge = 100;
     R.tap('KeyG');
     T.run(0.1);
     out.awakenState = k.state;
     out.invuln = k.isInvulnerable();
     T.run(0.8);
-    out.burstDmg = T.dmgTo(id);
+    out.burst2 = T.dmgTo(id);
     out.gear2 = k.gear;
-    out.stateAfter = k.state;
+    T.run(1.2);
+    out.aura2 = aura();
     R.clearEnemies();
     k.position.set(0, 0, -3);
     const z0 = k.position.z;
@@ -563,13 +570,9 @@ test('14. Gears: gauge from hits, awaken Gale Drive › Crimson Overdrive, buffs
     T.run(0.6);
     R.release('KeyW');
     out.g2Run = k.position.z - z0;
-    T.run(0.5);
-    // Gear 2 Quick Draw: faster and stronger
-    k.position.set(0, 0, -3);
-    k.facing = 0;
-    id = T.dummy(0, -1.6);
-    T.run(0.1);
-    T.hits.length = 0;
+    T.run(0.3);
+    id = fresh(0, -1.6);
+    k.gearGauge = 100;
     R.tap('Mouse0');
     let frames = 0;
     T.run(1, 1 / 60, () => {
@@ -577,10 +580,13 @@ test('14. Gears: gauge from hits, awaken Gale Drive › Crimson Overdrive, buffs
     });
     out.g2Frames = frames;
     out.g2Hit = T.dmgTo(id);
-    // Gear 3: super armor (no flinch) and reduced damage
+    // Gear 3: super armor (no flinch), reduced damage, echo wave far beyond sword range
+    k.gearGauge = 300;
     R.tap('KeyG');
     T.run(1.0);
     out.gear3 = k.gear;
+    T.run(1.0);
+    out.aura3 = aura();
     const e = R.enemy(id);
     e.passive = false;
     e.position.set(0, 0, k.position.z + 1.3);
@@ -593,52 +599,63 @@ test('14. Gears: gauge from hits, awaken Gale Drive › Crimson Overdrive, buffs
     });
     out.g3Took = hp0 - k.hp;
     out.g3Flinched = hurt;
-    // the echo wave of a Gear 3 combo reaches far beyond sword range
-    R.clearEnemies();
-    k.position.set(0, 0, -3);
-    k.facing = 0;
-    R.game.cameraRig.yaw = 0;
-    const far = T.dummy(0, 2.5);
-    T.run(0.1);
-    T.hits.length = 0;
+    let far = fresh(0, 2.5); // 5.5 m ahead
     R.tap('Mouse0');
     T.run(0.8);
-    out.echoFar = T.dmgTo(far);
-    // the gauge drains while awakened; empty → back to Gear 1
-    const gd = k.gearGauge;
-    T.run(1);
-    out.drain = gd - k.gearGauge;
-    k.gearGauge = 5;
-    T.run(1);
-    out.afterDrain = k.gear;
-    // G at Gear 3 releases manually; restart resets everything
+    out.echo3 = T.dmgTo(far);
+    // Gear 4 with a full gauge: biggest burst, biggest aura, rocks, aura burn and a longer echo
+    id = fresh(0, -1);
     k.gearGauge = 300;
     R.tap('KeyG');
     T.run(0.9);
-    R.tap('KeyG');
-    T.run(0.9);
-    out.beforeManual = k.gear;
+    out.gear4 = k.gear;
+    out.burst4 = T.dmgTo(id);
+    T.run(1.2);
+    out.aura4 = aura();
+    out.rocks = gv.rocks.alive;
+    const near = fresh(0, -1.2); // 1.8 m away; Kairo doesn't attack
+    T.run(1.0);
+    out.burn = T.dmgTo(near);
+    out.burnStagger = R.enemy(near).state === 'stagger';
+    far = fresh(0, 5.5); // 8.5 m ahead: beyond the Gear 3 echo
+    k.gearGauge = 300;
+    R.tap('Mouse0');
+    T.run(0.8);
+    out.echo4 = T.dmgTo(far);
+    // G at the top Gear releases; then the drain drops a Gear back to 1; restart resets
     R.tap('KeyG');
     T.run(0.1);
-    out.afterManual = k.gear;
+    out.afterRelease = k.gear;
+    T.run(1.5);
+    out.auraOff = !gv.back.visible;
+    k.gearGauge = 100;
+    R.tap('KeyG');
+    T.run(0.9);
+    k.gearGauge = 5;
+    T.run(2.0);
+    out.afterDrain = k.gear;
     k.gearGauge = 300;
     R.tap('KeyG');
     T.run(0.9);
     R.game.startMatch('training');
-    out.restart = { gear: k.gear, gauge: k.gearGauge, aura: k.gearVisuals.aura.visible };
+    out.restart = { gear: k.gear, gauge: k.gearGauge, aura: gv.back.visible, rocks: gv.rocks.alive };
     out.changes = T.events.filter((x) => x[0] === 'gearChange').map((x) => x[1]).join('');
     return out;
   });
+  const grows = (key) => r.aura2[key] < r.aura3[key] && r.aura3[key] < r.aura4[key];
   const ok =
-    r.gaugePerHit === 4 && r.deniedState === 'move' && r.denied === 1 &&
-    r.awakenState === 'awaken' && r.invuln && r.burstDmg > 0 && r.gear2 === 2 && r.stateAfter === 'move' &&
+    r.gaugePerHit === 4 && r.deniedState === 'move' && r.denied === 1 && !r.aura1.on &&
+    r.awakenState === 'awaken' && r.invuln && r.burst2 > 0 && r.gear2 === 2 && r.aura2.on &&
     r.g2Run > r.baseRun * 1.15 && r.g2Hit >= 48 && r.g2Hit <= 57 && r.g2Frames < 28 &&
-    r.gear3 === 3 && r.g3Took > 0 && !r.g3Flinched && r.echoFar > 0 &&
-    r.drain > 10 && r.afterDrain === 1 && r.beforeManual === 3 && r.afterManual === 1 &&
-    r.restart.gear === 1 && r.restart.gauge === 0 && !r.restart.aura && r.changes === '2312312';
+    r.gear3 === 3 && r.g3Took > 0 && !r.g3Flinched && r.echo3 > 0 &&
+    r.gear4 === 4 && r.burst4 > r.burst2 * 2 && grows('h') && grows('light') && grows('ground') && r.rocks > 0 &&
+    r.burn > 0 && !r.burnStagger && r.echo4 > 0 &&
+    r.afterRelease === 1 && r.auraOff && r.afterDrain === 1 &&
+    r.restart.gear === 1 && r.restart.gauge === 0 && !r.restart.aura && r.restart.rocks === 0 && r.changes === '2341212';
+  const a = (x) => `${x.h}m/${x.light}/${x.ground}`;
   return {
     ok,
-    info: `+${r.gaugePerHit} gauge/hit, denied=${r.denied}, burst dmg ${r.burstDmg}, run 0.6s ${r.baseRun.toFixed(2)}→${r.g2Run.toFixed(2)} m, G2 Quick Draw ${r.g2Hit} dmg in ${r.g2Frames} frames, G3 took ${r.g3Took} (flinched=${r.g3Flinched}), echo hit ${r.echoFar} at 5.5 m, drain ${r.drain.toFixed(1)}/s → gear ${r.afterDrain}, manual release ${r.beforeManual}→${r.afterManual}, gear changes ${r.changes}, restart ${JSON.stringify(r.restart)}`,
+    info: `+${r.gaugePerHit} gauge/hit, denied=${r.denied}; aura height/light/ground G2 ${a(r.aura2)} › G3 ${a(r.aura3)} › G4 ${a(r.aura4)}; burst G2 ${r.burst2} › G4 ${r.burst4}; run 0.6s ${r.baseRun.toFixed(2)}→${r.g2Run.toFixed(2)} m; G2 Quick Draw ${r.g2Hit} in ${r.g2Frames} frames; G3 took ${r.g3Took} (flinched=${r.g3Flinched}), echo ${r.echo3} at 5.5 m; G4 rocks=${r.rocks}, aura burn ${r.burn} in 1 s (stagger=${r.burnStagger}), echo ${r.echo4} at 8.5 m; release→${r.afterRelease}, drain→${r.afterDrain}, changes ${r.changes}, restart ${JSON.stringify(r.restart)}`,
   };
 });
 

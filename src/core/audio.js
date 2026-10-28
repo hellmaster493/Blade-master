@@ -2,7 +2,7 @@
 // The AudioContext is only created/resumed from a user gesture (unlock()) to respect autoplay rules.
 
 const MIN_INTERVAL = {
-  hit: 0.028, hitMedium: 0.035, hitHeavy: 0.05, swing: 0.03, ultCut: 0.03, enemyDefeat: 0.05, ready: 0.08, step: 0.05,
+  hit: 0.028, hitMedium: 0.035, hitHeavy: 0.05, swing: 0.03, ultCut: 0.03, enemyDefeat: 0.05, ready: 0.08, step: 0.05, zap: 0.06,
 };
 
 export class AudioEngine {
@@ -15,6 +15,8 @@ export class AudioEngine {
     this.voices = 0;
     this.maxVoices = 48;
     this._last = {};
+    this.aura = null; // sustained aura hum while a Gear is awakened
+    this.auraLevel = 0;
   }
 
   get ready() {
@@ -138,6 +140,59 @@ export class AudioEngine {
     osc.start(start);
     osc.stop(start + attack + dur + 0.05);
     this._voice(t + dur);
+  }
+
+  // ---------- aura hum ----------
+  /** Sustained rumble while a Gear is awakened; deeper and louder for each Gear (0 = off). */
+  setAura(level) {
+    if (!this.ready || (level === this.auraLevel)) return;
+    if (!this.aura) {
+      if (!level) return;
+      this._buildAura();
+    }
+    this.auraLevel = level;
+    const c = this.ctx;
+    const t = c.currentTime;
+    const p = level >= 2 ? level - 1 : 0; // 0..3
+    const a = this.aura;
+    a.noiseGain.gain.setTargetAtTime(p ? 0.02 + p * 0.016 : 0, t, 0.18);
+    a.toneGain.gain.setTargetAtTime(p ? 0.012 + p * 0.012 : 0, t, 0.18);
+    a.band.frequency.setTargetAtTime(500 + p * 260, t, 0.3);
+    a.osc.frequency.setTargetAtTime([55, 55, 49, 41.2][p], t, 0.3);
+    a.lfo.frequency.setTargetAtTime(3 + p * 1.5, t, 0.3);
+  }
+
+  _buildAura() {
+    const c = this.ctx;
+    const src = c.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const band = c.createBiquadFilter();
+    band.type = 'bandpass';
+    band.Q.value = 0.8;
+    band.frequency.value = 600;
+    const noiseGain = c.createGain();
+    noiseGain.gain.value = 0;
+    src.connect(band).connect(noiseGain).connect(this.master);
+    const osc = c.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 55;
+    const low = c.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.value = 320;
+    const toneGain = c.createGain();
+    toneGain.gain.value = 0;
+    osc.connect(low).connect(toneGain).connect(this.master);
+    // a slow wobble makes the aura breathe
+    const lfo = c.createOscillator();
+    lfo.frequency.value = 3;
+    const depth = c.createGain();
+    depth.gain.value = 0.012;
+    lfo.connect(depth).connect(noiseGain.gain);
+    src.start();
+    osc.start();
+    lfo.start();
+    this.aura = { src, band, noiseGain, osc, toneGain, lfo };
   }
 
   // ---------- public SFX ----------
@@ -309,15 +364,29 @@ export class AudioEngine {
     this._noise({ dur: 0.38, f0: 400, f1: 4000, q: 2.5, gain: 0.14, attack: 0.3 });
   }
 
-  /** The awakening blast: boom, power chord and a shimmering tail (Gear 3 is lower and heavier). */
+  /** The awakening blast: boom, power chord and a shimmering tail. Each Gear is lower and heavier. */
   _awaken({ gear = 2 } = {}) {
-    const root = gear === 3 ? 110 : 146.83;
-    this._noise({ dur: 0.9, type: 'lowpass', f0: 1200, f1: 80, gain: 0.5 });
-    this._tone({ dur: 0.7, f0: gear === 3 ? 70 : 90, f1: 32, gain: 0.6 });
+    const root = [0, 0, 146.83, 110, 82.41][gear] || 146.83;
+    const p = gear - 2; // 0..2
+    this._noise({ dur: 0.9 + p * 0.25, type: 'lowpass', f0: 1200, f1: 80, gain: 0.5 + p * 0.05 });
+    this._tone({ dur: 0.7 + p * 0.2, f0: [90, 70, 58][p] || 90, f1: 30, gain: 0.6 });
     for (const [mul, g] of [[1, 0.09], [1.5, 0.07], [2, 0.06], [3, 0.03]]) {
-      this._tone({ dur: 1.1, f0: root * mul, f1: root * mul * 0.995, gain: g, attack: 0.01, type: 'sawtooth' });
+      this._tone({ dur: 1.1 + p * 0.3, f0: root * mul, f1: root * mul * 0.995, gain: g, attack: 0.01, type: 'sawtooth' });
     }
     this._noise({ dur: 1.0, type: 'highpass', f0: 3000, f1: 9000, gain: 0.1, attack: 0.05 });
+    if (gear >= 4) {
+      // thunderclap: the sky answers Tempest Unbound
+      this._noise({ dur: 0.08, type: 'highpass', f0: 2500, f1: 6000, gain: 0.35 });
+      this._noise({ t: 0.03, dur: 1.6, type: 'lowpass', f0: 1800, f1: 50, gain: 0.45, attack: 0.02 });
+      this._tone({ dur: 1.6, f0: root * 4, f1: root * 4.02, gain: 0.03, attack: 0.2, type: 'sawtooth' });
+    }
+  }
+
+  /** Crackle of aura lightning. */
+  _zap({ gear = 3 } = {}) {
+    const pan = (Math.random() - 0.5) * 0.6;
+    this._noise({ dur: 0.05 + Math.random() * 0.04, type: 'highpass', f0: 3200, f1: 7000, q: 0.8, gain: gear >= 4 ? 0.09 : 0.06, pan });
+    this._tone({ dur: 0.05, type: 'square', f0: 1600 + Math.random() * 900, f1: 500, gain: 0.018, pan });
   }
 
   _gearRelease() {

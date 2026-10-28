@@ -85,14 +85,15 @@ export const SOFT_TARGET = { range: 6, halfAngle: 70 * DEG };
 
 // Kurokaze's sealed Gears. Awaken the next gear with G (touch: GEAR) once the gauge holds
 // enough; the gauge drains while awakened and Kairo drops back to Gear 1 when it empties.
+// Every Gear up is stronger than the last, and its aura grows to match.
 export const GEAR_GAUGE = {
   max: 300, // three segments of 100
   perHit: 4,
   perPerfectDodge: 30,
   perKill: 12,
   awakenTime: 0.8, // power-up burst; Kairo is invulnerable during it
-  burstRadius: 4.5,
-  burstDamage: 30,
+  surgeTime: 1.0, // no drain for this long after a burst, so Gears can be chained
+  fullGrace: 1.5, // a full gauge still counts as full this long after the drain starts
 };
 
 export const GEARS = [
@@ -104,9 +105,21 @@ export const GEARS = [
   {
     id: 2, name: 'GALE DRIVE', speedMul: 1.25, attackSpeed: 1.22, damageMul: 1.15, dashCdMul: 0.5, energyMul: 1.15,
     armor: 0, superArmor: false, drain: 9, glow: 0.55, cost: 100,
+    burst: { radius: 4.5, damage: 30, knockback: 10 },
   },
   {
     id: 3, name: 'CRIMSON OVERDRIVE', speedMul: 1.35, attackSpeed: 1.35, damageMul: 1.5, dashCdMul: 0.5, energyMul: 1.5,
-    armor: 0.25, superArmor: true, drain: 15, glow: 1.1, cost: 200, echo: true,
+    armor: 0.25, superArmor: true, drain: 15, glow: 1.1, cost: 200,
+    burst: { radius: 5.5, damage: 45, knockback: 13 },
+    echo: { grow: 5.5, damage: 0.5, halfAngle: 0.75 }, // crimson wave on every combo swing
+  },
+  {
+    id: 4, name: 'TEMPEST UNBOUND', speedMul: 1.45, attackSpeed: 1.5, damageMul: 2, dashCdMul: 0.35, energyMul: 2,
+    armor: 0.45, superArmor: true, drain: 20, glow: 1.6, cost: 300,
+    burst: { radius: 7, damage: 70, knockback: 16 },
+    echo: { grow: 7.5, damage: 0.75, halfAngle: 0.95 },
+    auraBurn: { radius: 2.6, damage: 12, interval: 0.45 }, // the aura itself scorches anything close
   },
 ];
+
+export const MAX_GEAR = GEARS.length - 1;

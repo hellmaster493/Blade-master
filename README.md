@@ -26,7 +26,7 @@ You need a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari). Pick *
 | **Q** | Crescent Slash |
 | **E** | Cyclone Cut |
 | **R** | Crimson Tempest (ultimate; needs full energy) |
-| **G** | Awaken the next Gear when the gear gauge is ready. Press it at Gear 3 to release |
+| **G** | Awaken the next Gear when the gear gauge is ready. Press it at Gear 4 to release |
 | **Shift** | Gale Step dash with i-frames. Dash just as an attack lands for a **PERFECT DODGE** |
 | **Space** | Jump |
 | **F** / **Tab** | Lock on to the nearest enemy / cycle targets |
@@ -49,7 +49,7 @@ The game has a futuristic dark-synthwave soundtrack, composed procedurally and p
 | Boss | Darker progression with a lead melody and tom fills (132 BPM). It speeds up to 140 BPM and the lead jumps an octave when Gorvath enrages |
 | Victory / defeat | A bright swelling victory theme, or a slow, filtered lament |
 
-Awakened Gears push the music harder: Gale Drive adds driving hi-hats, and Crimson Overdrive adds a lead line on top (outside the boss fight, which has its own lead). Changes land on the next beat. Pausing muffles the music, the ultimate dips it for the cinematic, and the audio clock pauses while the tab is hidden. On iPhone and iPad the game asks iOS to play through the ringer/silent switch, like other games and media players. After an interruption such as a phone call, the next tap resumes the music.
+Awakened Gears push the music harder, and the aura hums louder and deeper with each one. Gale Drive adds driving hi-hats. Crimson Overdrive adds a lead line on top (outside the boss fight, which has its own lead). Tempest Unbound harmonises that lead and adds a heavier, syncopated groove. Changes land on the next beat. Pausing muffles the music, the ultimate dips it for the cinematic, and the audio clock pauses while the tab is hidden. On iPhone and iPad the game asks iOS to play through the ringer/silent switch, like other games and media players. After an interruption such as a phone call, the next tap resumes the music.
 
 ### Touchscreen
 
@@ -103,19 +103,20 @@ Kairo is invulnerable during the sequence. It targets the locked-on enemy, other
 
 ### Gears
 
-Kurokaze has sealed Gears. Kairo can awaken them mid-fight for a temporary power-up, then drops back to Gear 1 when the gauge runs dry.
+Kurokaze has sealed Gears. Kairo can awaken them mid-fight for a temporary power-up, then drops back to Gear 1 when the gauge runs dry. **The higher the Gear, the stronger he gets and the bigger his aura burns.**
 
-The **gear gauge** sits under the ultimate bar. It has three segments (300 points) and fills by +4 per hit, +30 per perfect dodge and +12 per kill. In Training it also fills by itself. When the next Gear is ready, the label pulses and the G slot (touch: **GEAR**) lights up.
+The **gear gauge** sits under the ultimate bar. It has three segments (300 points) and fills by +4 per hit, +30 per perfect dodge and +12 per kill. In Training it also fills by itself. When the next Gear is ready, the label pulses and the G slot (touch: **GEAR**) lights up. The label shows the active Gear and its damage multiplier, and awakening shows a stat line such as `POWER ×1.5 · SPEED ×1.35 · 25% GUARD · SUPER ARMOR`.
 
-| Gear | Needs | Drain | Effects | Look |
+| Gear | Needs | Drain | Power | Aura |
 |---|---|---|---|---|
-| 1 · Base | — | — | Normal stats | Normal |
-| 2 · **Gale Drive** | 100 | 9/s | ×1.25 move speed, ×1.22 attack speed, ×1.15 damage, half dash cooldown, ×1.15 ultimate energy | Blue flame aura, glowing blue eyes, blue-white markings, wind spirals, afterimages while sprinting |
-| 3 · **Crimson Overdrive** | 200 | 15/s | ×1.35 move speed, ×1.35 attack speed, ×1.5 damage (the ultimate too), 25% less damage taken, **super armor** (hits don't interrupt you, 35% knockback), half dash cooldown, ×1.5 ultimate energy. Every combo swing also releases a crimson **echo wave** that reaches about 7.8 m | Crimson aura and blade, red eyes, darkened hair, embers and sparks |
+| 1 · Base | — | — | Normal stats | None |
+| 2 · **Gale Drive** | 1 bar | 9/s | ×1.25 move speed, ×1.22 attack speed, ×1.15 damage, half dash cooldown, ×1.15 ultimate energy | Blue flame aura about 2.5 m tall, blue ground sigil, glowing blue eyes, blue-white markings, wind spirals, afterimages while sprinting |
+| 3 · **Crimson Overdrive** | 2 bars | 15/s | ×1.35 move speed, ×1.35 attack speed, ×1.5 damage (the ultimate too), 25% less damage taken, **super armor** (hits don't interrupt you, 35% knockback), ×1.5 ultimate energy. Every combo swing releases a crimson **echo wave** that reaches about 7.8 m | Bigger, wilder crimson aura (about 3 m), cracked glowing sigil, red eyes, darkened hair, crimson blade, embers and crackling lightning |
+| 4 · **Tempest Unbound** | full gauge | 20/s | ×1.45 move speed, ×1.5 attack speed, **×2 damage**, 45% less damage taken, super armor, dash cooldown ×0.35, ×2 ultimate energy. A wider violet echo wave reaches about 10 m, and the **aura burns** anything within 2.6 m (12 damage every 0.45 s, no flinch) | Towering violet aura with blue and crimson flames (about 3.6 m), silver-white hair, a shattered lightning sigil, bolts arcing into the floor and onto every target he hits, and chunks of the arena floating up around him |
 
-- **Awakening** takes 0.8 s, and Kairo is invulnerable for all of it. He crouches and gathers energy, then bursts at 0.38 s. The burst deals 30 damage and knocks back everything within 4.5 m.
-- From Gear 2 you can go straight to Gear 3 once the gauge holds 200. Hits while awakened refill the gauge, so aggressive play keeps a Gear going longer.
-- The gauge pauses during the awakening and the Crimson Tempest cinematic. When it empties, Kairo returns to Gear 1. Pressing G at Gear 3 releases early.
+- **Awakening** takes 0.8 s, and Kairo is invulnerable for all of it. He crouches while the aura gathers, then bursts at 0.38 s with a pillar of light. Each Gear's burst is bigger: 30 / 45 / 70 damage within 4.5 / 5.5 / 7 m, with more shake, hit-stop and lightning. Gear 4 brings a lightning strike from the sky.
+- Gears go up one at a time. With a full gauge you can chain **G, G, G**: after each burst the gauge doesn't drain for 1 s, and a full gauge still counts as full for 1.5 s after the drain starts. Hits while awakened refill the gauge, so aggressive play keeps a Gear going longer.
+- The gauge pauses during the awakening and the Crimson Tempest cinematic. When it empties, Kairo returns to Gear 1. Pressing G at Gear 4 releases early, and the floating rocks crash back down.
 - Gears end on defeat or victory. Restarting resets the gauge.
 
 ## Enemies
@@ -146,7 +147,7 @@ src/characters/kairo/
   kairoMoves.js                combo / Crescent / Cyclone / reactions (timings, hits, FX cues)
   kairoUltimate.js             Crimson Tempest stage machine
   kairo.js                     controller: states, movement, buffering, hits, dash, perfect dodge, Gears
-  gearVisuals.js               Gear aura shader, glowing eyes, hair/blade recolour, awakening burst
+  gearVisuals.js               per-Gear flame aura, ground sigil, aura light, lightning, floating rocks, recolours, burst
 src/enemies/                   enemy base, ghoul, caster, boss, projectiles, wave director
 src/fx/                        pooled particles, debris, sword trail, slash arcs, rings, telegraphs, flashes, afterimages
 src/world/                     arena, camera rig, cel-shading/outline materials, canvas textures
@@ -185,7 +186,7 @@ npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwr
 11. Restarting mid-ultimate leaves no effects, cinematic state or stuck flags; pause freezes time
 12. A full boss fight (phase 2 included) ends in VICTORY with the sword sheathed; the defeat flow works; input is ignored after the game ends
 13. FX pools stay bounded, the scene-graph object count is unchanged after heavy use, and a simulation step takes about 1 ms
-14. Gears: +4 gauge per hit, G is refused without gauge, the awakening is invulnerable and its burst hurts nearby enemies, Gale Drive runs and swings faster for more damage, Crimson Overdrive shrugs off a hit without flinching and its echo wave lands 5.5 m away, the gauge drains back to Gear 1, G at Gear 3 releases, and restart resets everything
+14. Gears 1 › 4: +4 gauge per hit, G is refused without gauge, the awakening is invulnerable and its burst hurts nearby enemies. Gale Drive runs and swings faster for more damage. Crimson Overdrive shrugs off a hit without flinching and its echo lands 5.5 m away. Tempest Unbound's burst is over twice as strong, its echo lands 8.5 m away, its aura burns a nearby enemy without staggering it, and rocks float up. Aura height, aura light and ground sigil all grow from Gear 2 to 3 to 4. G at Gear 4 releases, the drain drops back to Gear 1, and restart resets everything
 15. Touchscreen, driven with real touch events in a phone-sized context: the joystick moves, dragging turns the camera, holding SLASH chains Quick Draw › Crosswind › Gale Breaker, the Q button casts, the pause button pauses, and nothing scrolls sideways
 16. The soundtrack stays silent until a real click, then measurably plays and changes through title › training › boss › victory, and muffles on pause
 17. Mobile audio unlock under emulated iOS rules (audio may start only on touch-end, click or key): the first tap anywhere starts the music, the chip never claims music is on while audio is blocked, and a tap after an interruption brings it back

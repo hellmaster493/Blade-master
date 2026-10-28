@@ -25,10 +25,19 @@ import { HUD } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
 import { ScreenFX } from './ui/screenfx.js';
 import { TouchControls } from './ui/touchControls.js';
-import { KAIRO, LOCK_ON_RANGE, GEAR_GAUGE } from './config.js';
+import { KAIRO, LOCK_ON_RANGE, GEAR_GAUGE, GEARS } from './config.js';
 import { clamp } from './core/mathutils.js';
 
 const SETTINGS_KEY = 'rift-arena-settings-v1';
+
+/** One-line stat readout shown when a Gear awakens, e.g. "POWER ×1.5 · SPEED ×1.35 · SUPER ARMOR". */
+function gearSummary(def) {
+  const parts = [`POWER ×${def.damageMul}`, `SPEED ×${def.speedMul}`];
+  if (def.armor) parts.push(`${Math.round(def.armor * 100)}% GUARD`);
+  if (def.superArmor) parts.push('SUPER ARMOR');
+  if (def.auraBurn) parts.push('AURA BURN');
+  return parts.join(' · ');
+}
 const DEFAULT_SETTINGS = { volume: 0.7, muted: false, music: 0.6, musicOn: true, sensitivity: 1, shake: 1, bloom: true };
 const MAX_STEP = 1 / 60;
 const MAX_SUBSTEPS = 6;
@@ -150,10 +159,11 @@ export class Game {
 
   wireEvents() {
     const ev = this.events;
-    ev.on('hit', ({ target, hit, result }) => {
+    ev.on('hit', ({ attacker, target, hit, result }) => {
       if (target === this.player) return;
       const pos = hit.point || target.anchor(new THREE.Vector3());
-      this.hud.damageNumber(pos, result.damage, { crimson: hit.crimson, heavy: hit.kind === 'heavy' });
+      const gear = attacker === this.player ? this.player.gear : 1;
+      this.hud.damageNumber(pos, result.damage, { crimson: hit.crimson, heavy: hit.kind === 'heavy', gear, small: !!hit.aura });
     });
     ev.on('kill', ({ attacker, target }) => {
       if (attacker === this.player) this.player.addGauge(GEAR_GAUGE.perKill);
@@ -190,7 +200,11 @@ export class Game {
     });
     ev.on('gearChange', ({ gear, prev, name }) => {
       this.music.setBoost(gear);
-      if (gear > prev) this.hud.message(`GEAR ${gear} — ${name}`, gear === 3 ? 'gear3-msg' : 'gear2-msg', 1.7);
+      if (gear > prev) {
+        this.hud.dropMessages(/gear/);
+        this.hud.message(`GEAR ${gear} — ${name}`, `gear${gear}-msg`, 1.7);
+        this.hud.message(gearSummary(GEARS[gear]), `gear-stats g${gear}`, 1.9);
+      }
       else if (prev > 1 && !this.matchOver && !this.player.isDefeated()) this.hud.message('GEAR RELEASED', 'small-msg', 1);
     });
     ev.on('gearReady', (g) => {
@@ -584,6 +598,7 @@ export class Game {
     }
     this.arena.update(realDt);
     this.screen.update(realDt, this.state === 'playing' ? clamp(1 - this.player.hp / (this.player.maxHp * 0.3), 0, 1) : 0);
+    this.audio.setAura(this.state === 'playing' ? this.player.gear : 0);
     if (render) this.render();
     input.endFrame();
   }

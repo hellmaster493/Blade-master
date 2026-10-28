@@ -146,6 +146,8 @@ html, body {
 .gear-row.g2 .gear-label { color: #bfeaff; text-shadow: 0 0 8px var(--blue), 0 1px 2px #000; }
 .gear-row.g3 .gear-gauge b { background: linear-gradient(90deg, var(--crimson-deep), var(--crimson), #ffc0cb); box-shadow: 0 0 6px var(--crimson); }
 .gear-row.g3 .gear-label { color: #ffd0d8; text-shadow: 0 0 8px var(--crimson), 0 1px 2px #000; }
+.gear-row.g4 .gear-gauge b { background: linear-gradient(90deg, #6a1fd0, var(--violet), #f0dcff); box-shadow: 0 0 8px var(--violet), 0 0 3px #fff; }
+.gear-row.g4 .gear-label { color: #f0e0ff; text-shadow: 0 0 10px var(--violet), 0 0 3px var(--crimson), 0 1px 2px #000; }
 @keyframes gearcall { from { text-shadow: 0 0 2px var(--blue); } to { text-shadow: 0 0 12px var(--blue), 0 0 2px #fff; } }
 
 .wave-panel {
@@ -256,6 +258,7 @@ html, body {
 @keyframes ultslot { from { box-shadow: 0 0 8px rgba(255, 36, 64, 0.5); } to { box-shadow: 0 0 28px rgba(255, 36, 64, 0.95); } }
 .slot-gear.active { border-color: var(--blue); box-shadow: 0 0 16px rgba(94, 200, 255, 0.7); }
 .slot-gear.active.g3 { border-color: var(--crimson); box-shadow: 0 0 18px rgba(255, 36, 64, 0.8); }
+.slot-gear.active.g4 { border-color: var(--violet); box-shadow: 0 0 22px rgba(160, 75, 255, 0.9), 0 0 6px rgba(255, 36, 64, 0.7); }
 .slot-gear.ready:not(.active) { animation: ultslot 0.9s infinite alternate; }
 .slot-dash .dash-ready {
   position: absolute;
@@ -297,6 +300,7 @@ html, body {
   top: 26vh;
   left: 50%;
   transform: translateX(-50%);
+  width: 100vw; /* so wrapping messages can use the whole screen, not half of it */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -318,8 +322,12 @@ html, body {
 .msg.defeat-msg { color: #ffb0b8; text-shadow: 0 0 20px var(--crimson), 0 3px 6px #000; font-size: clamp(30px, 4vw, 60px); }
 .msg.boss-msg { color: #ffd0f0; text-shadow: 0 0 16px var(--violet), 0 3px 6px #000; }
 .msg.small-msg { font-size: clamp(14px, 1.4vw, 20px); }
-.msg.gear2-msg { color: #e0f7ff; text-shadow: 0 0 18px var(--blue), 0 0 4px #fff, 0 3px 6px #000; font-size: clamp(22px, 3vw, 44px); }
-.msg.gear3-msg { color: #ffe0e6; text-shadow: 0 0 22px var(--crimson), 0 0 4px #fff, 0 3px 6px #000; font-size: clamp(24px, 3.4vw, 50px); }
+.msg.gear2-msg { color: #e0f7ff; text-shadow: 0 0 18px var(--blue), 0 0 4px #fff, 0 3px 6px #000; font-size: clamp(15px, 3vw, 42px); white-space: normal; max-width: 94vw; text-align: center; }
+.msg.gear4-msg { color: #fbf2ff; text-shadow: 0 0 26px var(--violet), 0 0 10px var(--crimson), 0 0 4px #fff, 0 3px 6px #000; font-size: clamp(15px, 3.2vw, 50px); white-space: normal; max-width: 94vw; text-align: center; }
+.msg.gear-stats { white-space: normal; max-width: 92vw; text-align: center; line-height: 1.5; font-size: clamp(11px, 1.1vw, 15px); letter-spacing: 0.18em; font-style: normal; color: #e6ecff; text-shadow: 0 0 8px var(--blue), 0 2px 3px #000; }
+.msg.gear-stats.g3 { text-shadow: 0 0 8px var(--crimson), 0 2px 3px #000; }
+.msg.gear-stats.g4 { text-shadow: 0 0 10px var(--violet), 0 2px 3px #000; }
+.msg.gear3-msg { color: #ffe0e6; text-shadow: 0 0 22px var(--crimson), 0 0 4px #fff, 0 3px 6px #000; font-size: clamp(15px, 3.1vw, 46px); white-space: normal; max-width: 94vw; text-align: center; }
 @keyframes msgpop {
   0% { opacity: 0; transform: scale(1.6) skewX(-12deg); }
   12% { opacity: 1; transform: scale(1) skewX(-12deg); }
@@ -408,6 +416,11 @@ html, body {
 }
 .dmg.heavy { font-size: 28px; color: #fff; }
 .dmg.crimson { color: #ffd6dc; text-shadow: 0 0 8px var(--crimson), 0 2px 3px #000; }
+.dmg.g3 { font-size: 24px; }
+.dmg.g3.heavy { font-size: 32px; }
+.dmg.g4 { font-size: 27px; color: #f6eaff; text-shadow: 0 0 10px var(--violet), 0 0 3px var(--crimson), 0 2px 3px #000; }
+.dmg.g4.heavy { font-size: 36px; }
+.dmg.aura { font-size: 14px; opacity: 0.85; }
 .dmg.player { color: #ff5a6a; text-shadow: 0 0 6px #000, 0 2px 3px #000; font-size: 22px; }
 
 .hint {
@@ -648,6 +661,7 @@ table.controls td:last-child { color: var(--muted); }
 .tb-lock .tb-icon { width: 46%; height: 46%; }
 .tb-gear.ready:not(.active) { border-color: var(--blue); animation: ultslot 0.9s infinite alternate; }
 .tb-gear.active { border-color: var(--blue); box-shadow: 0 0 14px rgba(94, 200, 255, 0.7); }
+.tb-gear.active.g4 { border-color: var(--violet); box-shadow: 0 0 18px rgba(160, 75, 255, 0.9); }
 .tb-gear.active.g3 { border-color: var(--crimson); box-shadow: 0 0 16px rgba(255, 36, 64, 0.8); }
 .tb-lock.on { border-color: var(--crimson); box-shadow: 0 0 12px rgba(255, 36, 64, 0.6); }
 .tb.denied { animation: tbdenied 0.35s; }
@@ -686,11 +700,11 @@ body.touch .lock-label { bottom: auto; top: calc(110px + env(safe-area-inset-top
   .slot .slot-name { display: none; }
 }
 @media (max-width: 600px) {
-  .wave-panel, body.touch .wave-panel { top: calc(88px + env(safe-area-inset-top, 0px)); left: 14px; right: auto; text-align: left; }
+  .wave-panel, body.touch .wave-panel { top: calc(112px + env(safe-area-inset-top, 0px)); left: 14px; right: auto; text-align: left; }
   .wave-name { font-size: 14px; }
   .wave-sub { font-size: 10px; }
-  body.touch .boss-bar { top: 136px; width: 86vw; }
-  body.touch .lock-label { top: 176px; }
+  body.touch .boss-bar { top: 156px; width: 86vw; }
+  body.touch .lock-label { top: 196px; }
 }
 @media (max-height: 520px) {
   .logo { margin-bottom: 8px; }

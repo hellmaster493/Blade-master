@@ -6,6 +6,7 @@ const FLASH_COLORS = {
   red: '255,40,60',
   blue: '120,200,255',
   crimson: '255,36,64',
+  violet: '190,110,255',
 };
 
 export class ScreenFX {

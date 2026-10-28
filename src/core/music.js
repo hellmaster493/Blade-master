@@ -55,7 +55,7 @@ export class Music {
     this.muffled = false;
     this.ducked = false;
     this.notes = 0; // scheduled note count (diagnostics/tests)
-    this.boost = 1; // Kairo's current Gear: 2 adds drive, 3 adds the lead
+    this.boost = 1; // Kairo's current Gear: 2 adds drive, 3 adds the lead, 4 adds a second lead and a heavier groove
   }
 
   setBoost(gear) {
@@ -243,6 +243,12 @@ export class Music {
     }
     if (this.boost >= 2 && m.kick && s % 8 === 6) this.hat(t + sd * 0.5, m.hats * 0.5, false);
     if (m.toms && phraseEnd && s >= 12) this.tom(t, 150 - (s - 12) * 22, m.toms);
+    if (this.boost >= 4 && m.kick) {
+      // Tempest Unbound: syncopated kick, crash every phrase and a tom run into each phrase
+      if (s === 10) this.kick(t, m.kick * 0.7);
+      if (s === 0 && bar % 4 === 0) this.crash(t, 0.45);
+      if (!m.toms && phraseEnd && s >= 12) this.tom(t, 150 - (s - 12) * 22, 0.5);
+    }
     // bass: rolling 16ths around the kick
     if (m.bass && s % 4 !== 0) {
       const up = s % 4 === 3 ? 12 : 0;
@@ -264,7 +270,10 @@ export class Music {
     } else if (this.boost >= 3 && m.kick) {
       // Gear 3 unleashes a lead in any battle style, built from the current chord's tones
       for (const [at, tone, len] of GEAR_LEAD) {
-        if (at === s) this.lead(t, chord.pad[tone] + 12 + (bar % 2 ? 12 : 0), sd * len, 0.7);
+        if (at !== s) continue;
+        const note = chord.pad[tone] + 12 + (bar % 2 ? 12 : 0);
+        this.lead(t, note, sd * len, 0.7);
+        if (this.boost >= 4) this.lead(t, note + 7, sd * len, 0.4); // a fifth above
       }
     }
   }

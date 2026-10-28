@@ -8,7 +8,7 @@ import { STANCE, F, createPose, lerpPose, sampleKeys, setPose } from './pose.js'
 import { COMBO, CRESCENT_SLASH, CYCLONE_CUT, HURT, DEFEAT, DASH_POSES, AWAKEN } from './kairoMoves.js';
 import { CrimsonTempest } from './kairoUltimate.js';
 import { GearVisuals } from './gearVisuals.js';
-import { KAIRO, ARENA, SOFT_TARGET, GEARS, GEAR_GAUGE } from '../../config.js';
+import { KAIRO, ARENA, SOFT_TARGET, GEARS, GEAR_GAUGE, MAX_GEAR } from '../../config.js';
 import { Cooldowns } from '../../core/cooldowns.js';
 import { HitTracker } from '../../combat/combat.js';
 import { COLORS } from '../../fx/fx.js';
@@ -38,7 +38,8 @@ const ACTION_KEYS = [
 ];
 
 const DASH_DIRS = ['forward', 'back', 'left', 'right'];
-const ECHO_LIFE = 0.38; // seconds a Gear 3 crimson wave travels
+const ECHO_LIFE = 0.38; // seconds a Gear 3+ echo wave travels
+const FLASH_FOR_GEAR = [null, 'white', 'blue', 'crimson', 'violet'];
 
 export class Kairo {
   constructor(game) {
@@ -79,10 +80,10 @@ export class Kairo {
     this.tipVel = new THREE.Vector3();
     this.gearVisuals = new GearVisuals(this);
     this.burstTracker = new HitTracker();
-    // Gear 3 crimson wave echoes (small fixed pool)
+    // Gear 3+ echo waves (small fixed pool)
     this.echoes = [];
     for (let i = 0; i < 6; i++) {
-      this.echoes.push({ active: false, origin: new THREE.Vector3(), dir: new THREE.Vector3(), t: 0, damage: 0, tracker: new HitTracker() });
+      this.echoes.push({ active: false, origin: new THREE.Vector3(), dir: new THREE.Vector3(), t: 0, damage: 0, grow: 5.5, halfAngle: 0.75, tracker: new HitTracker() });
     }
     this.reset(new THREE.Vector3(0, 0, 0), 0);
   }
@@ -128,6 +129,9 @@ export class Kairo {
     this.awakenBurst = false;
     this.gearGhostT = 0;
     this.gearsAwakened = 0;
+    this.surgeT = 0;
+    this.auraBurnT = 0;
+    this.fullT = 0;
     if (this.gearVisuals) this.gearVisuals.reset();
     if (this.echoes) for (const e of this.echoes) e.active = false;
     this.attachSwordToHand();
@@ -219,14 +223,17 @@ export class Kairo {
 
   /** The gear the next G press would awaken, or 0 if the gauge can't pay for it yet. */
   get nextGear() {
-    if (this.gear >= 3) return 0;
+    if (this.gear >= MAX_GEAR) return 0;
     const next = GEARS[this.gear + 1];
-    return this.gearGauge >= next.cost ? this.gear + 1 : 0;
+    // a full gauge counts as full for a moment, so the drain can't snatch Gear 4 away
+    const have = this.fullT > 0 ? GEAR_GAUGE.max : this.gearGauge;
+    return have >= next.cost ? this.gear + 1 : 0;
   }
 
   addGauge(v) {
     const before = this.nextGear;
     this.gearGauge = clamp(this.gearGauge + v, 0, GEAR_GAUGE.max);
+    if (this.gearGauge >= GEAR_GAUGE.max) this.fullT = GEAR_GAUGE.fullGrace;
     if (!before && this.nextGear) this.game.events.emit('gearReady', this.nextGear);
   }
 
@@ -257,17 +264,22 @@ export class Kairo {
     this.velocity.x = damp(this.velocity.x, 0, 12, dt);
     this.velocity.z = damp(this.velocity.z, 0, 12, dt);
     if (!this.awakenBurst) {
-      this.gearVisuals.charge(dt, this.awakenTo);
+      this.gearVisuals.charge(dt, this.awakenTo, clamp(t / AWAKEN.burstAt, 0, 1));
+      // the ground trembles while Gear 3 and 4 gather (shake is additive, so scale by dt)
+      if (this.awakenTo >= 3) this.game.shake(dt * 0.6 * (this.awakenTo - 2) * (t / AWAKEN.burstAt));
       if (t >= AWAKEN.burstAt) {
         this.awakenBurst = true;
         this.setGear(this.awakenTo);
+        this.surgeT = GEAR_GAUGE.surgeTime;
         this.gearVisuals.burst(this.awakenTo);
         this.gearShockwave();
+        // the higher the Gear, the harder the awakening hits
         const g = this.game;
-        g.hitstop(0.07);
-        g.shake(0.55);
-        g.cameraRig.kick(10);
-        if (g.screen) g.screen.flash(this.gear === 3 ? 'crimson' : 'blue', 0.22);
+        const p = this.gear - 1;
+        g.hitstop(0.05 + 0.025 * p);
+        g.shake(0.25 + 0.2 * p);
+        g.cameraRig.kick(6 + 4 * p);
+        if (g.screen) g.screen.flash(FLASH_FOR_GEAR[this.gear], 0.14 + 0.05 * p);
         g.audio.play('awaken', { gear: this.gear });
         g.events.emit('gearAwaken', { gear: this.gear, stage: 'burst' });
       }
@@ -283,14 +295,15 @@ export class Kairo {
   /** The awakening burst knocks back (and lightly cuts) everything close. */
   gearShockwave() {
     const combat = this.game.combat;
-    const hits = combat.queryRadius(this.position, GEAR_GAUGE.burstRadius, this.team, -1, 3);
+    const burst = this.gearDef.burst;
+    const hits = combat.queryRadius(this.position, burst.radius, this.team, -1, 3);
     const targets = hits.map((h) => h.target);
     for (const target of targets) {
       const dir = new THREE.Vector3(target.position.x - this.position.x, 0, target.position.z - this.position.z);
       if (dir.lengthSq() < 1e-4) dir.copy(this.facingDir);
       dir.normalize();
       const hit = {
-        damage: GEAR_GAUGE.burstDamage, knockback: 10, lift: 2.5, stagger: 0.6, kind: 'heavy', crimson: this.gear === 3,
+        damage: burst.damage, knockback: burst.knockback, lift: 2.5, stagger: 0.6, kind: 'heavy', crimson: this.gear >= 3,
         source: this, dir, point: new THREE.Vector3(target.position.x, target.position.y + 1, target.position.z),
       };
       const res = combat.applyHit(this, target, hit, this.burstTracker);
@@ -319,40 +332,70 @@ export class Kairo {
   updateGear(dt) {
     const def = this.gearDef;
     if (this.game.trainingCharge && this.state !== 'defeated') this.addGauge(dt * 18);
-    // the gauge pauses during the awakening burst and the ultimate cinematic
-    if (this.gear > 1 && this.state !== 'awaken' && !this.ultimate.active) {
+    // the gauge pauses during the awakening, the surge right after it and the ultimate cinematic
+    if (this.surgeT > 0) this.surgeT -= dt;
+    if (this.gearGauge >= GEAR_GAUGE.max) this.fullT = GEAR_GAUGE.fullGrace;
+    else if (this.fullT > 0) this.fullT -= dt;
+    if (this.gear > 1 && this.state !== 'awaken' && this.surgeT <= 0 && !this.ultimate.active) {
       this.gearGauge = Math.max(0, this.gearGauge - def.drain * dt);
       if (this.gearGauge <= 0) this.releaseGear();
     }
+    if (def.auraBurn && this.state !== 'defeated' && this.state !== 'victory' && !this.ultimate.active) this.updateAuraBurn(dt, def.auraBurn);
     // Gale Drive / Overdrive leave afterimages while sprinting
     if (this.gear > 1 && this.state === 'move') {
       const speed = Math.hypot(this.velocity.x, this.velocity.z);
       this.gearGhostT -= dt;
       if (speed > 7 && this.gearGhostT <= 0) {
         this.gearGhostT = 0.07;
-        this.game.fx.afterimage(this.model, { color: this.gear === 3 ? COLORS.crimson : COLORS.blue, life: 0.26, opacity: 0.22 });
+        this.game.fx.afterimage(this.model, { color: this.gearVisuals.look.ghost, life: 0.26, opacity: 0.22 });
       }
     }
     this.updateEchoes(dt);
     this.gearVisuals.update(dt);
   }
 
-  /** Gear 3: every basic swing releases a crimson wave that travels forward. */
+  /** Gear 3+: every basic swing releases an echo wave that travels forward (wider and farther at Gear 4). */
   spawnEcho(h) {
     const e = this.echoes.find((x) => !x.active);
     if (!e) return;
+    const cfg = this.gearDef.echo;
     e.active = true;
     e.t = 0;
     e.origin.copy(this.position);
     e.dir.copy(this.facingDir);
-    e.damage = h.damage * 0.5;
+    e.damage = h.damage * cfg.damage;
+    e.grow = cfg.grow;
+    e.halfAngle = cfg.halfAngle;
+    e.violet = this.gear >= 4;
     e.tracker.reset();
     _v.set(this.position.x, this.position.y + 1.1, this.position.z);
     _v2.set(e.dir.z, 0, -e.dir.x).multiplyScalar(-1);
+    const arc = e.halfAngle + 0.1;
     this.game.fx.slash({
-      origin: _v, F: e.dir, S: _v2, a0: -0.85, a1: 0.85, radius: 1.2, grow: 5.5, thickness: 0.35, life: ECHO_LIFE, sweep: 0.1,
-      accent: 1, body: COLORS.crimson, core: 0xffe0e6, accentColor: COLORS.blue, opacity: 0.9,
+      origin: _v, F: e.dir, S: _v2, a0: -arc, a1: arc, radius: 1.2, grow: e.grow, thickness: e.violet ? 0.45 : 0.35, life: ECHO_LIFE, sweep: 0.1,
+      accent: 1, body: e.violet ? 0xb55cff : COLORS.crimson, core: e.violet ? 0xf4e8ff : 0xffe0e6, accentColor: e.violet ? COLORS.crimson : COLORS.blue, opacity: 0.9,
     });
+  }
+
+  /** Gear 4: the aura scorches anything standing close (no flinch, no gauge, just damage). */
+  updateAuraBurn(dt, cfg) {
+    this.auraBurnT -= dt;
+    if (this.auraBurnT > 0) return;
+    this.auraBurnT = cfg.interval;
+    const combat = this.game.combat;
+    const targets = combat.queryRadius(this.position, cfg.radius, this.team, -1, 3).map((h) => h.target);
+    for (const target of targets) {
+      _point.set(target.position.x, target.position.y + Math.min(1.1, target.height * 0.5), target.position.z);
+      const dir = new THREE.Vector3(target.position.x - this.position.x, 0, target.position.z - this.position.z);
+      if (dir.lengthSq() < 1e-4) dir.copy(this.facingDir);
+      dir.normalize();
+      const hit = { damage: cfg.damage, knockback: 1.5, lift: 0, stagger: 0, kind: 'light', crimson: false, aura: true, source: this, dir, point: _point.clone() };
+      const res = combat.applyHit(this, target, hit, null);
+      if (res && res.applied) {
+        this.damageDealt += res.damage;
+        this.gearVisuals.bolts.spawn(this.chestWorld(_v), hit.point, { color: Math.random() < 0.5 ? 0xb55cff : COLORS.blue, width: 0.045, life: 0.12, jag: 0.3 });
+      }
+    }
   }
 
   updateEchoes(dt) {
@@ -362,21 +405,21 @@ export class Kairo {
       e.t += dt;
       const k = Math.min(1, e.t / ECHO_LIFE);
       // matches the arc's own growth so the hit follows what you see
-      const R = 1.2 * (1 + 5.5 * Ease.outCubic(k));
-      const hits = combat.querySector({ origin: e.origin, forward: e.dir, range: R, halfAngle: 0.75, team: this.team, yMin: -0.6, yMax: 2.6, minRange: Math.max(0, R - 1.8) });
+      const R = 1.2 * (1 + e.grow * Ease.outCubic(k));
+      const hits = combat.querySector({ origin: e.origin, forward: e.dir, range: R, halfAngle: e.halfAngle, team: this.team, yMin: -0.6, yMax: 2.6, minRange: Math.max(0, R - 1.8) });
       const targets = hits.map((x) => x.target);
       for (const target of targets) {
         if (e.tracker.has(target)) continue;
         _point.set(target.position.x, target.position.y + Math.min(1.2, target.height * 0.55), target.position.z);
         const hit = {
-          damage: e.damage * this.damageMul, knockback: 3, lift: 0, stagger: 0.25, kind: 'medium', crimson: true,
+          damage: e.damage * this.damageMul, knockback: 3, lift: 0, stagger: 0.25, kind: 'medium', crimson: !e.violet, violet: e.violet,
           source: this, dir: e.dir.clone(), point: _point.clone(),
         };
         const res = combat.applyHit(this, target, hit, e.tracker);
         if (res && res.applied) {
           this.damageDealt += res.damage;
           this.registerHit();
-          this.game.fx.impact(hit.point, e.dir, { crimson: true, scale: 0.8 });
+          this.game.fx.impact(hit.point, e.dir, { crimson: true, scale: e.violet ? 1 : 0.8 });
           this.game.audio.play('hitMedium');
         }
       }
@@ -516,7 +559,7 @@ export class Kairo {
         return true;
       case 'gear': {
         this.consumeBuffer();
-        if (this.gear >= 3) {
+        if (this.gear >= MAX_GEAR) {
           this.releaseGear();
           return true;
         }
@@ -964,7 +1007,8 @@ export class Kairo {
     _v2.copy(this.tipVel);
     if (_v2.lengthSq() < 1e-3) _v2.copy(hit.dir);
     _v2.normalize();
-    game.fx.impact(hit.point, _v2, { heavy, crimson: h.crimson });
+    game.fx.impact(hit.point, _v2, { heavy, crimson: h.crimson || this.gear >= 3 });
+    this.gearVisuals.onHit(hit.point);
     if (h.burst) {
       game.fx.sparks(hit.point, { count: 30, speed: 12, colors: [COLORS.crimson, 0xff6a7a, COLORS.blue, COLORS.white], size: 0.07, life: 0.55 });
       game.fx.ring({ position: _v.set(target.position.x, target.position.y + 1.0, target.position.z), radius: 2.2, life: 0.3, width: 0.16, normal: hit.dir });
@@ -1299,6 +1343,7 @@ export class Kairo {
     const g = this.glow;
     const m = this.model.materials;
     if (this.gear === 2) m.mark.color.setRGB(0.15 + g * 0.6, 0.3 + g * 1.4, 0.45 + g * 2.4);
+    else if (this.gear === 4) m.mark.color.setRGB(0.3 + g * 1.5, 0.08 + g * 0.5, 0.45 + g * 2.2);
     else m.mark.color.setRGB(0.45 + g * 2.6, 0.04 + g * 0.1, 0.08 + g * 0.2);
     m.emblem.color.setRGB(0.5 + g * 1.6, 0.06, 0.12);
     const s = this.sword;

@@ -2,7 +2,7 @@
 // dash indicator, combo counter, lock-on reticle, enemy/boss health bars, damage numbers and messages.
 import * as THREE from 'three';
 import { PORTRAIT, ICONS } from './icons.js';
-import { KAIRO, ABILITIES, GEARS, GEAR_GAUGE } from '../config.js';
+import { KAIRO, ABILITIES, GEARS, GEAR_GAUGE, MAX_GEAR } from '../config.js';
 import { damp, clamp } from '../core/mathutils.js';
 
 const _v = new THREE.Vector3();
@@ -119,6 +119,11 @@ export class HUD {
     setTimeout(() => m.remove(), duration * 1000);
   }
 
+  /** Removes queued messages whose class matches, e.g. the previous Gear's title. */
+  dropMessages(pattern) {
+    for (const m of [...this.messages.children]) if (pattern.test(m.className)) m.remove();
+  }
+
   showBanner(name, title) {
     this.banner.querySelector('.b-name').textContent = name;
     this.banner.querySelector('.b-title').textContent = title;
@@ -159,7 +164,7 @@ export class HUD {
     this.lastMilestone = 0;
   }
 
-  damageNumber(pos, amount, { crimson = false, heavy = false, player = false } = {}) {
+  damageNumber(pos, amount, { crimson = false, heavy = false, player = false, gear = 1, small = false } = {}) {
     let n = this.numbers.find((x) => !x.active);
     if (!n) n = this.numbers.reduce((a, b) => (a.life < b.life ? a : b));
     n.active = true;
@@ -168,7 +173,7 @@ export class HUD {
     n.life = n.max = heavy ? 1.0 : 0.8;
     n.vx = (Math.random() - 0.5) * 40;
     n.el.textContent = Math.round(amount);
-    n.el.className = 'dmg' + (crimson ? ' crimson' : '') + (heavy ? ' heavy' : '') + (player ? ' player' : '');
+    n.el.className = 'dmg' + (crimson ? ' crimson' : '') + (heavy ? ' heavy' : '') + (player ? ' player' : '') + (gear >= 3 ? ' g' + gear : '') + (small ? ' aura' : '');
     n.el.style.display = 'block';
   }
 
@@ -217,18 +222,19 @@ export class HUD {
     const gearNext = k.nextGear;
     const seg = GEAR_GAUGE.max / 3;
     this.gearSegs.forEach((b, i) => (b.style.width = (clamp((k.gearGauge - i * seg) / seg, 0, 1) * 100).toFixed(1) + '%'));
-    this.gearRow.classList.toggle('g2', gear === 2);
-    this.gearRow.classList.toggle('g3', gear === 3);
+    for (let i = 2; i <= MAX_GEAR; i++) this.gearRow.classList.toggle('g' + i, gear === i);
     this.gearRow.classList.toggle('ready', !!gearNext);
-    this.gearLabel.textContent = gear > 1 ? `GEAR ${gear} · ${GEARS[gear].name}` : gearNext ? `GEAR ${gearNext} READY` : 'GEAR 1';
-    this.gearHint.textContent = touch ? (gear >= 3 ? 'TAP GEAR: RELEASE' : 'TAP GEAR') : gear >= 3 ? 'G: RELEASE' : 'G';
+    this.gearLabel.textContent = gear > 1 ? `GEAR ${gear} · ${GEARS[gear].name} · ×${GEARS[gear].damageMul}` : gearNext ? `GEAR ${gearNext} READY` : 'GEAR 1';
+    const key = touch ? 'TAP GEAR' : 'G';
+    this.gearHint.textContent = gearNext ? (gear > 1 ? `${key} › GEAR ${gearNext}` : key) : gear >= MAX_GEAR ? `${key}: RELEASE` : key;
     const gs = this.slots.gear;
-    const nextCost = gear < 3 ? GEARS[gear + 1].cost : 0;
-    gs.cd.style.setProperty('--cd', gearNext || gear >= 3 ? '0' : (1 - clamp(k.gearGauge / nextCost, 0, 1)).toFixed(3));
+    const nextCost = gear < MAX_GEAR ? GEARS[gear + 1].cost : 0;
+    gs.cd.style.setProperty('--cd', gearNext || gear >= MAX_GEAR ? '0' : (1 - clamp(k.gearGauge / nextCost, 0, 1)).toFixed(3));
     gs.text.textContent = gear > 1 ? Math.ceil(k.gearGauge / GEARS[gear].drain) + 's' : '';
     gs.root.classList.toggle('ready', !!gearNext);
     gs.root.classList.toggle('active', gear > 1);
     gs.root.classList.toggle('g3', gear === 3);
+    gs.root.classList.toggle('g4', gear === 4);
     if (gearNext && this.slotReady.gear === false) this.pulseSlot('gear');
     this.slotReady.gear = !!gearNext;
 
