@@ -271,3 +271,27 @@ export const DASH_POSES = {
   left: { spineRoll: -0.35, hipsY: -0.2, fLx: 0.45, fLy: 0.2, fRx: -0.25, fRz: 0.05 },
   right: { spineRoll: 0.35, hipsY: -0.2, fRx: -0.45, fRy: 0.2, fLx: 0.25, fLz: -0.05 },
 };
+
+// Gear awakening: gather energy low, then burst upright with the blade flung out.
+export const AWAKEN = {
+  id: 'awaken',
+  duration: 0.8,
+  burstAt: 0.38,
+  keys: buildKeys(STANCE, [
+    { t: 0 },
+    {
+      t: 0.3, ease: 'outCubic',
+      hipsY: -0.3, spinePitch: 0.5, chestPitch: 0.15, headPitch: 0.35, chestYaw: 0, spineYaw: 0, hipsYaw: -0.1,
+      sTilt: 0, sPitch: 0.95, sPhi: -0.45, sReach: 0.32, sRoll: -HALF, sPy: 1.0, sPx: -0.12, sPz: 0.12,
+      hLx: 0.12, hLy: 1.05, hLz: 0.22, fRx: -0.2, fRz: 0.12, fLx: 0.22, fLz: -0.12, kneeR: 0.4, kneeL: 0.4,
+    },
+    {
+      t: 0.42, ease: 'outExpo',
+      hipsY: -0.02, spinePitch: -0.28, chestPitch: -0.18, headPitch: -0.3,
+      sTilt: 0.35, sPitch: -0.2, sPhi: -1.5, sReach: 0.5, sPy: 1.45, sPx: -0.08, sPz: 0.05,
+      hLx: 0.62, hLy: 1.5, hLz: 0.05, eLx: 0.9, eLy: 0.2, eLz: -0.3,
+    },
+    { t: 0.6, ease: 'linear', spinePitch: -0.22, headPitch: -0.25 },
+    { t: 0.8, ease: 'inOutQuad', ...REST },
+  ]),
+};

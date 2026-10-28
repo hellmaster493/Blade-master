@@ -2,7 +2,7 @@
 // dash indicator, combo counter, lock-on reticle, enemy/boss health bars, damage numbers and messages.
 import * as THREE from 'three';
 import { PORTRAIT, ICONS } from './icons.js';
-import { KAIRO, ABILITIES } from '../config.js';
+import { KAIRO, ABILITIES, GEARS, GEAR_GAUGE } from '../config.js';
 import { damp, clamp } from '../core/mathutils.js';
 
 const _v = new THREE.Vector3();
@@ -51,6 +51,10 @@ export class HUD {
     el('div', 'name-row', info, `<span class="pname">${KAIRO.name}</span><span class="ptitle">${KAIRO.title}</span>`);
     this.hpBar = el('div', 'bar hp', info, '<div class="ghost"></div><div class="fill"></div><span class="val"></span>');
     this.ultBar = el('div', 'bar ult', info, '<div class="fill"></div><span class="val"></span>');
+    this.gearRow = el('div', 'gear-row', info, '<span class="gear-label">GEAR 1</span><div class="gear-gauge"><i><b></b></i><i><b></b></i><i><b></b></i></div><span class="gear-hint">G</span>');
+    this.gearSegs = [...this.gearRow.querySelectorAll('.gear-gauge b')];
+    this.gearLabel = this.gearRow.querySelector('.gear-label');
+    this.gearHint = this.gearRow.querySelector('.gear-hint');
 
     this.wavePanel = el('div', 'wave-panel', r, '<div class="wave-name"></div><div class="wave-sub"></div>');
     this.bossBar = el('div', 'boss-bar hidden', r, '<div class="boss-name"></div><div class="bar"><div class="ghost"></div><div class="fill"></div></div>');
@@ -69,6 +73,7 @@ export class HUD {
     mk('cyclone', ABILITIES.cyclone.key, ABILITIES.cyclone.name, ICONS.cyclone);
     mk('ultimate', ABILITIES.ultimate.key, ABILITIES.ultimate.name, ICONS.ultimate);
     mk('dash', ABILITIES.dash.key, ABILITIES.dash.name, ICONS.dash, '<div class="dash-ready">READY</div>');
+    mk('gear', ABILITIES.gear.key, ABILITIES.gear.name, ICONS.gear);
     this.pips = [...this.slots.combo.root.querySelectorAll('.pips i')];
 
     this.combo = el('div', 'combo hidden', r, '<div class="count">0</div><div class="label">HITS</div><div class="timer"><div></div></div><div class="rank"></div>');
@@ -207,6 +212,26 @@ export class HUD {
       if (ready && this.slotReady[id] === false) this.pulseSlot(id);
       this.slotReady[id] = ready;
     }
+    // Gear gauge: three segments; label shows the active gear or that the next one is ready
+    const gear = k.gear;
+    const gearNext = k.nextGear;
+    const seg = GEAR_GAUGE.max / 3;
+    this.gearSegs.forEach((b, i) => (b.style.width = (clamp((k.gearGauge - i * seg) / seg, 0, 1) * 100).toFixed(1) + '%'));
+    this.gearRow.classList.toggle('g2', gear === 2);
+    this.gearRow.classList.toggle('g3', gear === 3);
+    this.gearRow.classList.toggle('ready', !!gearNext);
+    this.gearLabel.textContent = gear > 1 ? `GEAR ${gear} · ${GEARS[gear].name}` : gearNext ? `GEAR ${gearNext} READY` : 'GEAR 1';
+    this.gearHint.textContent = touch ? (gear >= 3 ? 'TAP GEAR: RELEASE' : 'TAP GEAR') : gear >= 3 ? 'G: RELEASE' : 'G';
+    const gs = this.slots.gear;
+    const nextCost = gear < 3 ? GEARS[gear + 1].cost : 0;
+    gs.cd.style.setProperty('--cd', gearNext || gear >= 3 ? '0' : (1 - clamp(k.gearGauge / nextCost, 0, 1)).toFixed(3));
+    gs.text.textContent = gear > 1 ? Math.ceil(k.gearGauge / GEARS[gear].drain) + 's' : '';
+    gs.root.classList.toggle('ready', !!gearNext);
+    gs.root.classList.toggle('active', gear > 1);
+    gs.root.classList.toggle('g3', gear === 3);
+    if (gearNext && this.slotReady.gear === false) this.pulseSlot('gear');
+    this.slotReady.gear = !!gearNext;
+
     const us = this.slots.ultimate;
     us.cd.style.setProperty('--cd', (1 - ultK).toFixed(3));
     us.text.textContent = ultK >= 1 ? '' : Math.floor(ultK * 100) + '%';

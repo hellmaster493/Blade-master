@@ -1,13 +1,14 @@
 // KAIRO — THE BLADE MASTER: player controller.
-// State machine: move | action | dash | hurt | defeated | victory
+// State machine: move | action | dash | hurt | awaken | defeated | victory
 // Implements the shared Combatant interface (see combat/combat.js).
 import * as THREE from 'three';
 import { buildKairo, DIMS } from './kairoModel.js';
 import { KairoAnimator } from './kairoAnimator.js';
 import { STANCE, F, createPose, lerpPose, sampleKeys, setPose } from './pose.js';
-import { COMBO, CRESCENT_SLASH, CYCLONE_CUT, HURT, DEFEAT, DASH_POSES } from './kairoMoves.js';
+import { COMBO, CRESCENT_SLASH, CYCLONE_CUT, HURT, DEFEAT, DASH_POSES, AWAKEN } from './kairoMoves.js';
 import { CrimsonTempest } from './kairoUltimate.js';
-import { KAIRO, ARENA, SOFT_TARGET } from '../../config.js';
+import { GearVisuals } from './gearVisuals.js';
+import { KAIRO, ARENA, SOFT_TARGET, GEARS, GEAR_GAUGE } from '../../config.js';
 import { Cooldowns } from '../../core/cooldowns.js';
 import { HitTracker } from '../../combat/combat.js';
 import { COLORS } from '../../fx/fx.js';
@@ -33,9 +34,11 @@ const ACTION_KEYS = [
   ['ultimate', ['KeyR']],
   ['dash', ['ShiftLeft', 'ShiftRight']],
   ['jump', ['Space']],
+  ['gear', ['KeyG']],
 ];
 
 const DASH_DIRS = ['forward', 'back', 'left', 'right'];
+const ECHO_LIFE = 0.38; // seconds a Gear 3 crimson wave travels
 
 export class Kairo {
   constructor(game) {
@@ -74,6 +77,13 @@ export class Kairo {
     this.buffer = { name: null, time: 0 };
     this.prevTip = new THREE.Vector3();
     this.tipVel = new THREE.Vector3();
+    this.gearVisuals = new GearVisuals(this);
+    this.burstTracker = new HitTracker();
+    // Gear 3 crimson wave echoes (small fixed pool)
+    this.echoes = [];
+    for (let i = 0; i < 6; i++) {
+      this.echoes.push({ active: false, origin: new THREE.Vector3(), dir: new THREE.Vector3(), t: 0, damage: 0, tracker: new HitTracker() });
+    }
     this.reset(new THREE.Vector3(0, 0, 0), 0);
   }
 
@@ -112,6 +122,14 @@ export class Kairo {
     this.victoryT = 0;
     this.swordSheathed = false;
     this.sheatheBlend = 0;
+    this.gear = 1;
+    this.gearGauge = 0;
+    this.awakenTo = 0;
+    this.awakenBurst = false;
+    this.gearGhostT = 0;
+    this.gearsAwakened = 0;
+    if (this.gearVisuals) this.gearVisuals.reset();
+    if (this.echoes) for (const e of this.echoes) e.active = false;
     this.attachSwordToHand();
     this.cooldowns.reset();
     this.animator.reset();
@@ -140,12 +158,14 @@ export class Kairo {
         perfect = true;
         this.perfectDodges++;
         this.addEnergy(KAIRO.dash.perfectEnergy);
+        this.addGauge(GEAR_GAUGE.perPerfectDodge);
         this.game.onPerfectDodge(this);
       }
       return { applied: false, killed: false, damage: 0, dodged: true, perfect };
     }
     if (this.hurtInvulnT > 0) return { applied: false, killed: false, damage: 0 };
-    const dmg = Math.max(0, hit.damage);
+    const gear = this.gearDef;
+    const dmg = Math.round(Math.max(0, hit.damage) * (1 - gear.armor));
     this.hp = Math.max(0, this.hp - dmg);
     this.addEnergy(dmg * KAIRO.ultimate.onDamageTaken);
     this.resetHitCombo();
@@ -154,13 +174,19 @@ export class Kairo {
       return { applied: true, killed: true, damage: dmg };
     }
     this.hurtInvulnT = 0.4; // brief grace so groups can't stun-lock
-    this.enterHurt();
+    if (gear.superArmor) {
+      // Crimson Overdrive: takes the hit without flinching
+      this.game.audio.play('hurt');
+      this.game.fx.flash({ position: this.chestWorld(_v), color: COLORS.crimson, size: 1.6, life: 0.15, kind: 'glow', opacity: 0.6 });
+    } else {
+      this.enterHurt();
+    }
     return { applied: true, killed: false, damage: dmg };
   }
 
   applyKnockback(dir, force, lift = 0) {
     if (this.state === 'defeated') return;
-    this.knock.addScaledVector(dir, force);
+    this.knock.addScaledVector(dir, force * (this.gearDef.superArmor ? 0.35 : 1));
     if (lift > 0 && this.grounded) {
       this.velocity.y = lift;
       this.grounded = false;
@@ -182,6 +208,182 @@ export class Kairo {
     return this.energy >= KAIRO.ultimate.max;
   }
 
+  // ------------------------------------------------------------------ gears
+  get gearDef() {
+    return GEARS[this.gear];
+  }
+
+  get damageMul() {
+    return GEARS[this.gear].damageMul;
+  }
+
+  /** The gear the next G press would awaken, or 0 if the gauge can't pay for it yet. */
+  get nextGear() {
+    if (this.gear >= 3) return 0;
+    const next = GEARS[this.gear + 1];
+    return this.gearGauge >= next.cost ? this.gear + 1 : 0;
+  }
+
+  addGauge(v) {
+    const before = this.nextGear;
+    this.gearGauge = clamp(this.gearGauge + v, 0, GEAR_GAUGE.max);
+    if (!before && this.nextGear) this.game.events.emit('gearReady', this.nextGear);
+  }
+
+  startAwaken(next) {
+    if (this.state === 'dash') this.endDash(false);
+    if (this.state === 'action' && this.act.move) {
+      this.stopTrail();
+      this.act.move = null;
+    }
+    this.snapshotPose(this.act.from);
+    this.state = 'awaken';
+    this.stateT = 0;
+    this.awakenTo = next;
+    this.awakenBurst = false;
+    this.burstTracker.reset();
+    this.invulnT = Math.max(this.invulnT, GEAR_GAUGE.awakenTime);
+    this.velocity.x *= 0.2;
+    this.velocity.z *= 0.2;
+    this.glowTarget = 1;
+    this.game.audio.play('awakenCharge');
+    this.game.events.emit('gearAwaken', { gear: next, stage: 'charge' });
+  }
+
+  updateAwaken(dt) {
+    const t = this.stateT;
+    sampleKeys(AWAKEN.keys, t, this.act.sample);
+    lerpPose(this.actionPose, this.act.from, this.act.sample, Ease.outQuad(clamp(t / 0.06, 0, 1)));
+    this.velocity.x = damp(this.velocity.x, 0, 12, dt);
+    this.velocity.z = damp(this.velocity.z, 0, 12, dt);
+    if (!this.awakenBurst) {
+      this.gearVisuals.charge(dt, this.awakenTo);
+      if (t >= AWAKEN.burstAt) {
+        this.awakenBurst = true;
+        this.setGear(this.awakenTo);
+        this.gearVisuals.burst(this.awakenTo);
+        this.gearShockwave();
+        const g = this.game;
+        g.hitstop(0.07);
+        g.shake(0.55);
+        g.cameraRig.kick(10);
+        if (g.screen) g.screen.flash(this.gear === 3 ? 'crimson' : 'blue', 0.22);
+        g.audio.play('awaken', { gear: this.gear });
+        g.events.emit('gearAwaken', { gear: this.gear, stage: 'burst' });
+      }
+    }
+    if (t >= AWAKEN.duration) {
+      this.exitPose.set(this.actionPose);
+      this.exitT = 0.14;
+      this.state = 'move';
+      this.stateT = 0;
+    }
+  }
+
+  /** The awakening burst knocks back (and lightly cuts) everything close. */
+  gearShockwave() {
+    const combat = this.game.combat;
+    const hits = combat.queryRadius(this.position, GEAR_GAUGE.burstRadius, this.team, -1, 3);
+    const targets = hits.map((h) => h.target);
+    for (const target of targets) {
+      const dir = new THREE.Vector3(target.position.x - this.position.x, 0, target.position.z - this.position.z);
+      if (dir.lengthSq() < 1e-4) dir.copy(this.facingDir);
+      dir.normalize();
+      const hit = {
+        damage: GEAR_GAUGE.burstDamage, knockback: 10, lift: 2.5, stagger: 0.6, kind: 'heavy', crimson: this.gear === 3,
+        source: this, dir, point: new THREE.Vector3(target.position.x, target.position.y + 1, target.position.z),
+      };
+      const res = combat.applyHit(this, target, hit, this.burstTracker);
+      if (res && res.applied) this.damageDealt += res.damage;
+    }
+  }
+
+  setGear(g) {
+    const prev = this.gear;
+    this.gear = g;
+    this.gearVisuals.setGear(g);
+    if (g > prev) this.gearsAwakened++;
+    this.game.events.emit('gearChange', { gear: g, prev, name: GEARS[g].name });
+  }
+
+  /** Drop back to Gear 1 (gauge empty, manual release, defeat or victory). */
+  releaseGear() {
+    if (this.gear === 1) return;
+    this.setGear(1);
+    const fx = this.game.fx;
+    fx.ring({ position: this.position, radius: 2.4, life: 0.45, width: 0.1, inner: 0x445577, outer: 0x9aa6c8 });
+    fx.motes(this.chestWorld(_v), { count: 14, spread: 0.6, rise: 1.4, colors: [0x9aa6c8, 0x5ec8ff], size: 0.05, life: 0.8 });
+    this.game.audio.play('gearRelease');
+  }
+
+  updateGear(dt) {
+    const def = this.gearDef;
+    if (this.game.trainingCharge && this.state !== 'defeated') this.addGauge(dt * 18);
+    // the gauge pauses during the awakening burst and the ultimate cinematic
+    if (this.gear > 1 && this.state !== 'awaken' && !this.ultimate.active) {
+      this.gearGauge = Math.max(0, this.gearGauge - def.drain * dt);
+      if (this.gearGauge <= 0) this.releaseGear();
+    }
+    // Gale Drive / Overdrive leave afterimages while sprinting
+    if (this.gear > 1 && this.state === 'move') {
+      const speed = Math.hypot(this.velocity.x, this.velocity.z);
+      this.gearGhostT -= dt;
+      if (speed > 7 && this.gearGhostT <= 0) {
+        this.gearGhostT = 0.07;
+        this.game.fx.afterimage(this.model, { color: this.gear === 3 ? COLORS.crimson : COLORS.blue, life: 0.26, opacity: 0.22 });
+      }
+    }
+    this.updateEchoes(dt);
+    this.gearVisuals.update(dt);
+  }
+
+  /** Gear 3: every basic swing releases a crimson wave that travels forward. */
+  spawnEcho(h) {
+    const e = this.echoes.find((x) => !x.active);
+    if (!e) return;
+    e.active = true;
+    e.t = 0;
+    e.origin.copy(this.position);
+    e.dir.copy(this.facingDir);
+    e.damage = h.damage * 0.5;
+    e.tracker.reset();
+    _v.set(this.position.x, this.position.y + 1.1, this.position.z);
+    _v2.set(e.dir.z, 0, -e.dir.x).multiplyScalar(-1);
+    this.game.fx.slash({
+      origin: _v, F: e.dir, S: _v2, a0: -0.85, a1: 0.85, radius: 1.2, grow: 5.5, thickness: 0.35, life: ECHO_LIFE, sweep: 0.1,
+      accent: 1, body: COLORS.crimson, core: 0xffe0e6, accentColor: COLORS.blue, opacity: 0.9,
+    });
+  }
+
+  updateEchoes(dt) {
+    const combat = this.game.combat;
+    for (const e of this.echoes) {
+      if (!e.active) continue;
+      e.t += dt;
+      const k = Math.min(1, e.t / ECHO_LIFE);
+      // matches the arc's own growth so the hit follows what you see
+      const R = 1.2 * (1 + 5.5 * Ease.outCubic(k));
+      const hits = combat.querySector({ origin: e.origin, forward: e.dir, range: R, halfAngle: 0.75, team: this.team, yMin: -0.6, yMax: 2.6, minRange: Math.max(0, R - 1.8) });
+      const targets = hits.map((x) => x.target);
+      for (const target of targets) {
+        if (e.tracker.has(target)) continue;
+        _point.set(target.position.x, target.position.y + Math.min(1.2, target.height * 0.55), target.position.z);
+        const hit = {
+          damage: e.damage * this.damageMul, knockback: 3, lift: 0, stagger: 0.25, kind: 'medium', crimson: true,
+          source: this, dir: e.dir.clone(), point: _point.clone(),
+        };
+        const res = combat.applyHit(this, target, hit, e.tracker);
+        if (res && res.applied) {
+          this.damageDealt += res.damage;
+          this.registerHit();
+          this.game.fx.impact(hit.point, e.dir, { crimson: true, scale: 0.8 });
+          this.game.audio.play('hitMedium');
+        }
+      }
+      if (e.t >= ECHO_LIFE) e.active = false;
+    }
+  }
+
   resetHitCombo() {
     if (this.hitCount > 0) this.game.events.emit('comboEnd', { count: this.hitCount });
     this.hitCount = 0;
@@ -189,6 +391,7 @@ export class Kairo {
   }
 
   registerHit() {
+    this.addGauge(GEAR_GAUGE.perHit);
     this.hitCount++;
     this.comboTimer = KAIRO.comboHitWindow;
     if (this.hitCount > this.maxCombo) this.maxCombo = this.hitCount;
@@ -311,6 +514,20 @@ export class Kairo {
         this.consumeBuffer();
         this.startDash();
         return true;
+      case 'gear': {
+        this.consumeBuffer();
+        if (this.gear >= 3) {
+          this.releaseGear();
+          return true;
+        }
+        const next = this.nextGear;
+        if (!next) {
+          this.game.events.emit('denied', 'gear');
+          return false;
+        }
+        this.startAwaken(next);
+        return true;
+      }
       case 'jump':
         if (!this.grounded) {
           this.consumeBuffer();
@@ -355,6 +572,7 @@ export class Kairo {
     if (this.exitT > 0) this.exitT = Math.max(0, this.exitT - dt);
     if (this.lockTarget && this.lockTarget.isDefeated()) this.game.onLockTargetLost();
     if (this.game.trainingCharge && this.state !== 'defeated') this.addEnergy(dt * 9);
+    this.updateGear(dt);
 
     this.readMoveInput(_wish);
 
@@ -371,6 +589,9 @@ export class Kairo {
         break;
       case 'hurt':
         this.updateHurt(dt);
+        break;
+      case 'awaken':
+        this.updateAwaken(dt);
         break;
       case 'defeated':
         this.updateDefeated(dt);
@@ -392,12 +613,12 @@ export class Kairo {
       this.startVictory();
       return;
     }
-    this.glowTarget = this.game.state === 'title' ? 0.5 : 0.15;
+    this.glowTarget = this.game.state === 'title' ? 0.5 : this.gearDef.glow;
     this.tryBuffered(() => true);
     if (this.state !== 'move') return;
 
     const locked = this.validLockTarget();
-    const speed = (locked ? KAIRO.lockSpeed * (this.inputZ < 0 ? KAIRO.backpedalMul : 1) : KAIRO.runSpeed) * (this.inputMag || 1);
+    const speed = (locked ? KAIRO.lockSpeed * (this.inputZ < 0 ? KAIRO.backpedalMul : 1) : KAIRO.runSpeed) * (this.inputMag || 1) * this.gearDef.speedMul;
     this.accelerate(_wish, speed, dt);
     if (locked) {
       const yaw = Math.atan2(locked.position.x - this.position.x, locked.position.z - this.position.z);
@@ -584,7 +805,8 @@ export class Kairo {
     const a = this.act;
     const move = a.move;
     a.prevT = a.t;
-    a.t += dt;
+    // awakened Gears swing faster
+    a.t += dt * this.gearDef.attackSpeed;
     const t = a.t;
 
     // face the chosen direction quickly during the wind-up, then commit
@@ -657,6 +879,9 @@ export class Kairo {
 
     // hit windows: a window counts if it overlapped this step (robust at any frame rate)
     if (move.hits) {
+      if (this.gearDef.echo && move.type === 'combo') {
+        for (const h of move.hits) if (a.prevT < h.t0 && t >= h.t0) this.spawnEcho(h);
+      }
       move.hits.forEach((h, i) => {
         if (a.prevT <= h.t1 && t >= h.t0) this.performHit(h, a.trackers[i], t);
       });
@@ -713,7 +938,7 @@ export class Kairo {
         dir = _v.copy(f);
       }
       const hit = {
-        damage: h.damage,
+        damage: h.damage * this.damageMul,
         knockback: h.knockback || 0,
         lift: h.lift || 0,
         stagger: h.stagger || 0,
@@ -730,7 +955,7 @@ export class Kairo {
 
   onHitLanded(h, target, result, hit) {
     this.damageDealt += result.damage;
-    if (h.energy) this.addEnergy(h.energy);
+    if (h.energy) this.addEnergy(h.energy * this.gearDef.energyMul);
     this.registerHit();
     const game = this.game;
     game.hitstop(h.hitstop || 0);
@@ -855,7 +1080,7 @@ export class Kairo {
     this.state = 'dash';
     this.stateT = 0;
     this.invulnT = KAIRO.dash.iframes;
-    this.cooldowns.start('dash');
+    this.cooldowns.start('dash', KAIRO.cooldowns.dash * this.gearDef.dashCdMul);
     this.game.audio.play('dash');
     this.game.fx.trail.start('dash');
     this.game.fx.dust(this.position, { count: 8, radius: 0.4, speed: 3, alpha: 0.28 });
@@ -938,6 +1163,7 @@ export class Kairo {
 
   defeat() {
     if (this.ultimate.active) this.ultimate.abort();
+    this.releaseGear();
     this.stopTrail();
     this.act.move = null;
     this.snapshotPose(this.act.from);
@@ -991,6 +1217,7 @@ export class Kairo {
 
   startVictory() {
     this.pendingVictory = false;
+    this.releaseGear();
     if (this.state === 'dash') this.endDash(false);
     this.stopTrail();
     this.snapshotPose(this.act.from);
@@ -1049,7 +1276,7 @@ export class Kairo {
   updateAnimation(dt) {
     let action = null;
     let weight = 0;
-    if (this.state === 'action' || this.state === 'dash' || this.state === 'hurt' || this.state === 'defeated' || this.state === 'victory') {
+    if (this.state === 'action' || this.state === 'dash' || this.state === 'hurt' || this.state === 'awaken' || this.state === 'defeated' || this.state === 'victory') {
       action = this.actionPose;
       weight = 1;
     } else if (this.exitT > 0) {
@@ -1071,7 +1298,8 @@ export class Kairo {
   applyGlow() {
     const g = this.glow;
     const m = this.model.materials;
-    m.mark.color.setRGB(0.45 + g * 2.6, 0.04 + g * 0.1, 0.08 + g * 0.2);
+    if (this.gear === 2) m.mark.color.setRGB(0.15 + g * 0.6, 0.3 + g * 1.4, 0.45 + g * 2.4);
+    else m.mark.color.setRGB(0.45 + g * 2.6, 0.04 + g * 0.1, 0.08 + g * 0.2);
     m.emblem.color.setRGB(0.5 + g * 1.6, 0.06, 0.12);
     const s = this.sword;
     const drawn = this.swordSheathed ? 0 : 1;

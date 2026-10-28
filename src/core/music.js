@@ -34,6 +34,9 @@ const LEAD = [
   [48, 76, 4], [52, 80, 4], [56, 83, 2], [58, 80, 2], [60, 76, 4],
 ];
 
+// Gear 3 lead: [step, chord tone index, length in steps]; fits any progression
+const GEAR_LEAD = [[0, 0, 3], [3, 1, 1], [4, 2, 4], [8, 1, 2], [10, 0, 2], [12, 2, 4]];
+
 const ARP_ORDER = [0, 1, 2, 3, 4, 5, 4, 3];
 const LOOKAHEAD = 0.14; // seconds scheduled ahead of the audio clock
 const TICK_MS = 25;
@@ -52,6 +55,11 @@ export class Music {
     this.muffled = false;
     this.ducked = false;
     this.notes = 0; // scheduled note count (diagnostics/tests)
+    this.boost = 1; // Kairo's current Gear: 2 adds drive, 3 adds the lead
+  }
+
+  setBoost(gear) {
+    this.boost = gear;
   }
 
   get playing() {
@@ -231,8 +239,9 @@ export class Music {
     if (m.snare && (s === 4 || s === 12)) this.snare(t, m.snare);
     if (m.hats) {
       if (s % 4 === 2) this.hat(t, m.hats * (s === 14 && bar % 2 ? 1.2 : 1), s === 14 && bar % 2 === 1);
-      else if (m.kick) this.hat(t, m.hats * 0.4, false);
+      else if (m.kick) this.hat(t, m.hats * (this.boost >= 2 ? 0.75 : 0.4), false);
     }
+    if (this.boost >= 2 && m.kick && s % 8 === 6) this.hat(t + sd * 0.5, m.hats * 0.5, false);
     if (m.toms && phraseEnd && s >= 12) this.tom(t, 150 - (s - 12) * 22, m.toms);
     // bass: rolling 16ths around the kick
     if (m.bass && s % 4 !== 0) {
@@ -251,6 +260,11 @@ export class Music {
       const ls = step % 64;
       for (const [at, note, len] of LEAD) {
         if (at === ls) this.lead(t, note + (m.leadUp || 0), sd * len, m.lead);
+      }
+    } else if (this.boost >= 3 && m.kick) {
+      // Gear 3 unleashes a lead in any battle style, built from the current chord's tones
+      for (const [at, tone, len] of GEAR_LEAD) {
+        if (at === s) this.lead(t, chord.pad[tone] + 12 + (bar % 2 ? 12 : 0), sd * len, 0.7);
       }
     }
   }

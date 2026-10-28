@@ -64,6 +64,7 @@ export const ABILITIES = {
   cyclone: { key: 'E', name: 'Cyclone Cut', cooldown: KAIRO.cooldowns.cyclone },
   ultimate: { key: 'R', name: 'Crimson Tempest' },
   dash: { key: 'SHIFT', name: 'Gale Step', cooldown: KAIRO.cooldowns.dash },
+  gear: { key: 'G', name: 'Awaken Gear' },
 };
 
 // Damage numbers are summarised in the README; keep them in sync.
@@ -81,3 +82,31 @@ export const DAMAGE = {
 
 export const LOCK_ON_RANGE = 32;
 export const SOFT_TARGET = { range: 6, halfAngle: 70 * DEG };
+
+// Kurokaze's sealed Gears. Awaken the next gear with G (touch: GEAR) once the gauge holds
+// enough; the gauge drains while awakened and Kairo drops back to Gear 1 when it empties.
+export const GEAR_GAUGE = {
+  max: 300, // three segments of 100
+  perHit: 4,
+  perPerfectDodge: 30,
+  perKill: 12,
+  awakenTime: 0.8, // power-up burst; Kairo is invulnerable during it
+  burstRadius: 4.5,
+  burstDamage: 30,
+};
+
+export const GEARS = [
+  null,
+  {
+    id: 1, name: 'BASE', speedMul: 1, attackSpeed: 1, damageMul: 1, dashCdMul: 1, energyMul: 1,
+    armor: 0, superArmor: false, drain: 0, glow: 0.15, cost: 0,
+  },
+  {
+    id: 2, name: 'GALE DRIVE', speedMul: 1.25, attackSpeed: 1.22, damageMul: 1.15, dashCdMul: 0.5, energyMul: 1.15,
+    armor: 0, superArmor: false, drain: 9, glow: 0.55, cost: 100,
+  },
+  {
+    id: 3, name: 'CRIMSON OVERDRIVE', speedMul: 1.35, attackSpeed: 1.35, damageMul: 1.5, dashCdMul: 0.5, energyMul: 1.5,
+    armor: 0.25, superArmor: true, drain: 15, glow: 1.1, cost: 200, echo: true,
+  },
+];

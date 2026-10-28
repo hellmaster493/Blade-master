@@ -134,6 +134,20 @@ html, body {
 @keyframes ultglow { from { box-shadow: 0 0 6px var(--crimson); } to { box-shadow: 0 0 22px var(--crimson), 0 0 4px #fff; } }
 @keyframes lowpulse { from { filter: brightness(1); } to { filter: brightness(1.6); } }
 
+.gear-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; margin-top: 2px; width: 88%; }
+.gear-label { font-family: var(--display); font-style: italic; font-size: 10px; letter-spacing: 0.12em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 100%; min-width: 0; text-shadow: 0 1px 2px #000; }
+.gear-gauge { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; min-width: 60px; }
+.gear-gauge i { display: block; height: 7px; background: rgba(5, 6, 14, 0.8); border: 1px solid rgba(255, 255, 255, 0.18); transform: skewX(-18deg); overflow: hidden; }
+.gear-gauge b { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8a96b8, #dfe8ff); }
+.gear-hint { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; color: var(--muted); white-space: nowrap; }
+.gear-row.ready .gear-label { color: #fff; animation: gearcall 0.8s infinite alternate; }
+.gear-row.ready .gear-hint { color: var(--blue); }
+.gear-row.g2 .gear-gauge b { background: linear-gradient(90deg, var(--blue-deep), var(--blue), #e0f7ff); box-shadow: 0 0 6px var(--blue); }
+.gear-row.g2 .gear-label { color: #bfeaff; text-shadow: 0 0 8px var(--blue), 0 1px 2px #000; }
+.gear-row.g3 .gear-gauge b { background: linear-gradient(90deg, var(--crimson-deep), var(--crimson), #ffc0cb); box-shadow: 0 0 6px var(--crimson); }
+.gear-row.g3 .gear-label { color: #ffd0d8; text-shadow: 0 0 8px var(--crimson), 0 1px 2px #000; }
+@keyframes gearcall { from { text-shadow: 0 0 2px var(--blue); } to { text-shadow: 0 0 12px var(--blue), 0 0 2px #fff; } }
+
 .wave-panel {
   position: absolute;
   top: clamp(12px, 2vh, 24px);
@@ -240,6 +254,9 @@ html, body {
 .slot-ultimate.ready { border-color: var(--crimson); box-shadow: 0 0 18px rgba(255, 36, 64, 0.7); animation: ultslot 0.9s infinite alternate; }
 .slot-ultimate.active { border-color: #fff; box-shadow: 0 0 30px var(--crimson); }
 @keyframes ultslot { from { box-shadow: 0 0 8px rgba(255, 36, 64, 0.5); } to { box-shadow: 0 0 28px rgba(255, 36, 64, 0.95); } }
+.slot-gear.active { border-color: var(--blue); box-shadow: 0 0 16px rgba(94, 200, 255, 0.7); }
+.slot-gear.active.g3 { border-color: var(--crimson); box-shadow: 0 0 18px rgba(255, 36, 64, 0.8); }
+.slot-gear.ready:not(.active) { animation: ultslot 0.9s infinite alternate; }
 .slot-dash .dash-ready {
   position: absolute;
   top: 3px;
@@ -301,6 +318,8 @@ html, body {
 .msg.defeat-msg { color: #ffb0b8; text-shadow: 0 0 20px var(--crimson), 0 3px 6px #000; font-size: clamp(30px, 4vw, 60px); }
 .msg.boss-msg { color: #ffd0f0; text-shadow: 0 0 16px var(--violet), 0 3px 6px #000; }
 .msg.small-msg { font-size: clamp(14px, 1.4vw, 20px); }
+.msg.gear2-msg { color: #e0f7ff; text-shadow: 0 0 18px var(--blue), 0 0 4px #fff, 0 3px 6px #000; font-size: clamp(22px, 3vw, 44px); }
+.msg.gear3-msg { color: #ffe0e6; text-shadow: 0 0 22px var(--crimson), 0 0 4px #fff, 0 3px 6px #000; font-size: clamp(24px, 3.4vw, 50px); }
 @keyframes msgpop {
   0% { opacity: 0; transform: scale(1.6) skewX(-12deg); }
   12% { opacity: 1; transform: scale(1) skewX(-12deg); }
@@ -627,6 +646,9 @@ table.controls td:last-child { color: var(--muted); }
 .tb-ult { border-color: rgba(255, 36, 64, 0.45); }
 .tb-ult.ready { border-color: var(--crimson); animation: ultslot 0.9s infinite alternate; }
 .tb-lock .tb-icon { width: 46%; height: 46%; }
+.tb-gear.ready:not(.active) { border-color: var(--blue); animation: ultslot 0.9s infinite alternate; }
+.tb-gear.active { border-color: var(--blue); box-shadow: 0 0 14px rgba(94, 200, 255, 0.7); }
+.tb-gear.active.g3 { border-color: var(--crimson); box-shadow: 0 0 16px rgba(255, 36, 64, 0.8); }
 .tb-lock.on { border-color: var(--crimson); box-shadow: 0 0 12px rgba(255, 36, 64, 0.6); }
 .tb.denied { animation: tbdenied 0.35s; }
 @keyframes tbdenied {

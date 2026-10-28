@@ -26,6 +26,7 @@ You need a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari). Pick *
 | **Q** | Crescent Slash |
 | **E** | Cyclone Cut |
 | **R** | Crimson Tempest (ultimate; needs full energy) |
+| **G** | Awaken the next Gear when the gear gauge is ready. Press it at Gear 3 to release |
 | **Shift** | Gale Step dash with i-frames. Dash just as an attack lands for a **PERFECT DODGE** |
 | **Space** | Jump |
 | **F** / **Tab** | Lock on to the nearest enemy / cycle targets |
@@ -48,7 +49,7 @@ The game has a futuristic dark-synthwave soundtrack, composed procedurally and p
 | Boss | Darker progression with a lead melody and tom fills (132 BPM). It speeds up to 140 BPM and the lead jumps an octave when Gorvath enrages |
 | Victory / defeat | A bright swelling victory theme, or a slow, filtered lament |
 
-Changes land on the next beat. Pausing muffles the music, the ultimate dips it for the cinematic, and the audio clock pauses while the tab is hidden. On iPhone and iPad the game asks iOS to play through the ringer/silent switch, like other games and media players. After an interruption such as a phone call, the next tap resumes the music.
+Awakened Gears push the music harder: Gale Drive adds driving hi-hats, and Crimson Overdrive adds a lead line on top (outside the boss fight, which has its own lead). Changes land on the next beat. Pausing muffles the music, the ultimate dips it for the cinematic, and the audio clock pauses while the tab is hidden. On iPhone and iPad the game asks iOS to play through the ringer/silent switch, like other games and media players. After an interruption such as a phone call, the next tap resumes the music.
 
 ### Touchscreen
 
@@ -59,7 +60,7 @@ Touch controls switch on by themselves on phones and tablets, or the first time 
 | **Left thumb** | Floating joystick. Push further to run |
 | **Drag the right side** | Rotate the camera. You can move and look at the same time |
 | **SLASH** (big button) | Attack. Hold it to keep the combo going |
-| **DASH / Q / E / JUMP / ULT / LOCK** | Same as Shift / Q / E / Space / R / F. Buttons show cooldown sweeps |
+| **DASH / Q / E / JUMP / ULT / GEAR / LOCK** | Same as Shift / Q / E / Space / R / G / F. Buttons show cooldown sweeps |
 | **❚❚** | Pause. The pause menu also toggles dummy attacks in Training |
 
 Touch devices start with bloom off, a 1.5× pixel-ratio cap and smaller shadow maps for performance. You can turn bloom back on in Settings.
@@ -100,6 +101,23 @@ Damage varies by ±6%. Inputs are buffered for 0.32 s. Combo follow-ups start at
 
 Kairo is invulnerable during the sequence. It targets the locked-on enemy, otherwise the best enemy in front. If the target dies, the remaining cuts simply miss. A watchdog ends the sequence after 5 s no matter what, and `abort()` cleans up on restart or game over.
 
+### Gears
+
+Kurokaze has sealed Gears. Kairo can awaken them mid-fight for a temporary power-up, then drops back to Gear 1 when the gauge runs dry.
+
+The **gear gauge** sits under the ultimate bar. It has three segments (300 points) and fills by +4 per hit, +30 per perfect dodge and +12 per kill. In Training it also fills by itself. When the next Gear is ready, the label pulses and the G slot (touch: **GEAR**) lights up.
+
+| Gear | Needs | Drain | Effects | Look |
+|---|---|---|---|---|
+| 1 · Base | — | — | Normal stats | Normal |
+| 2 · **Gale Drive** | 100 | 9/s | ×1.25 move speed, ×1.22 attack speed, ×1.15 damage, half dash cooldown, ×1.15 ultimate energy | Blue flame aura, glowing blue eyes, blue-white markings, wind spirals, afterimages while sprinting |
+| 3 · **Crimson Overdrive** | 200 | 15/s | ×1.35 move speed, ×1.35 attack speed, ×1.5 damage (the ultimate too), 25% less damage taken, **super armor** (hits don't interrupt you, 35% knockback), half dash cooldown, ×1.5 ultimate energy. Every combo swing also releases a crimson **echo wave** that reaches about 7.8 m | Crimson aura and blade, red eyes, darkened hair, embers and sparks |
+
+- **Awakening** takes 0.8 s, and Kairo is invulnerable for all of it. He crouches and gathers energy, then bursts at 0.38 s. The burst deals 30 damage and knocks back everything within 4.5 m.
+- From Gear 2 you can go straight to Gear 3 once the gauge holds 200. Hits while awakened refill the gauge, so aggressive play keeps a Gear going longer.
+- The gauge pauses during the awakening and the Crimson Tempest cinematic. When it empties, Kairo returns to Gear 1. Pressing G at Gear 3 releases early.
+- Gears end on defeat or victory. Restarting resets the gauge.
+
 ## Enemies
 
 - **Rift Ghoul**: melee. Telegraphed claw swipe and leaping pounce. Staggers on every hit.
@@ -127,7 +145,8 @@ src/characters/kairo/
   kairoAnimator.js             locomotion synthesis, IK, sword orientation, coat/ponytail springs
   kairoMoves.js                combo / Crescent / Cyclone / reactions (timings, hits, FX cues)
   kairoUltimate.js             Crimson Tempest stage machine
-  kairo.js                     controller: states, movement, buffering, hits, dash, perfect dodge
+  kairo.js                     controller: states, movement, buffering, hits, dash, perfect dodge, Gears
+  gearVisuals.js               Gear aura shader, glowing eyes, hair/blade recolour, awakening burst
 src/enemies/                   enemy base, ghoul, caster, boss, projectiles, wave director
 src/fx/                        pooled particles, debris, sword trail, slash arcs, rings, telegraphs, flashes, afterimages
 src/world/                     arena, camera rig, cel-shading/outline materials, canvas textures
@@ -151,7 +170,7 @@ dev/poses.html, dev/viewer.html  pose/model inspection pages for development
 npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwright install chromium
 ```
 
-`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **17/17** checks (`ONLY=<n> npm test` runs a single one):
+`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **18/18** checks (`ONLY=<n> npm test` runs a single one):
 
 1. Kairo appears (multi-part model, about 1.88 m tall, all joints present)
 2. Sword parented to the hand at a constant distance; during a cut the tip sweeps in front and the edge leads the swing
@@ -166,6 +185,7 @@ npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwr
 11. Restarting mid-ultimate leaves no effects, cinematic state or stuck flags; pause freezes time
 12. A full boss fight (phase 2 included) ends in VICTORY with the sword sheathed; the defeat flow works; input is ignored after the game ends
 13. FX pools stay bounded, the scene-graph object count is unchanged after heavy use, and a simulation step takes about 1 ms
+14. Gears: +4 gauge per hit, G is refused without gauge, the awakening is invulnerable and its burst hurts nearby enemies, Gale Drive runs and swings faster for more damage, Crimson Overdrive shrugs off a hit without flinching and its echo wave lands 5.5 m away, the gauge drains back to Gear 1, G at Gear 3 releases, and restart resets everything
 15. Touchscreen, driven with real touch events in a phone-sized context: the joystick moves, dragging turns the camera, holding SLASH chains Quick Draw › Crosswind › Gale Breaker, the Q button casts, the pause button pauses, and nothing scrolls sideways
 16. The soundtrack stays silent until a real click, then measurably plays and changes through title › training › boss › victory, and muffles on pause
 17. Mobile audio unlock under emulated iOS rules (audio may start only on touch-end, click or key): the first tap anywhere starts the music, the chip never claims music is on while audio is blocked, and a tap after an interruption brings it back

@@ -302,6 +302,29 @@ export class AudioEngine {
     this._tone({ dur: 0.05, f0: 1500, f1: 1200, gain: 0.04, type: 'square' });
   }
 
+  /** Energy gathering before a Gear awakens: rising hum and tightening whoosh. */
+  _awakenCharge() {
+    this._tone({ dur: 0.4, f0: 110, f1: 330, gain: 0.18, attack: 0.25, type: 'sawtooth' });
+    this._tone({ dur: 0.4, f0: 440, f1: 1760, gain: 0.04, attack: 0.3, type: 'sine' });
+    this._noise({ dur: 0.38, f0: 400, f1: 4000, q: 2.5, gain: 0.14, attack: 0.3 });
+  }
+
+  /** The awakening blast: boom, power chord and a shimmering tail (Gear 3 is lower and heavier). */
+  _awaken({ gear = 2 } = {}) {
+    const root = gear === 3 ? 110 : 146.83;
+    this._noise({ dur: 0.9, type: 'lowpass', f0: 1200, f1: 80, gain: 0.5 });
+    this._tone({ dur: 0.7, f0: gear === 3 ? 70 : 90, f1: 32, gain: 0.6 });
+    for (const [mul, g] of [[1, 0.09], [1.5, 0.07], [2, 0.06], [3, 0.03]]) {
+      this._tone({ dur: 1.1, f0: root * mul, f1: root * mul * 0.995, gain: g, attack: 0.01, type: 'sawtooth' });
+    }
+    this._noise({ dur: 1.0, type: 'highpass', f0: 3000, f1: 9000, gain: 0.1, attack: 0.05 });
+  }
+
+  _gearRelease() {
+    this._tone({ dur: 0.5, f0: 660, f1: 160, gain: 0.07, type: 'triangle' });
+    this._noise({ dur: 0.4, f0: 3000, f1: 400, q: 1.5, gain: 0.1 });
+  }
+
   _sheathe() {
     this._noise({ dur: 0.25, f0: 2500, f1: 5000, q: 3, gain: 0.08, attack: 0.18 });
     this._tone({ t: 0.42, dur: 0.18, type: 'triangle', f0: 2600, f1: 2500, gain: 0.08 });

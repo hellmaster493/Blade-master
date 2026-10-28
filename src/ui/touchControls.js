@@ -2,7 +2,7 @@
 // and combat buttons arranged in an arc around a large attack button. Buttons feed the same
 // Input object the keyboard uses, so gameplay code is identical for both control schemes.
 import { ICONS } from './icons.js';
-import { KAIRO } from '../config.js';
+import { KAIRO, GEARS } from '../config.js';
 import { clamp } from '../core/mathutils.js';
 
 const JUMP_ICON = `<svg viewBox="0 0 64 64"><path d="M32 10 L52 32 H40 V54 H24 V32 H12 Z" fill="#eaf8ff"/></svg>`;
@@ -16,6 +16,7 @@ const BUTTONS = [
   { id: 'cyclone', code: 'KeyE', label: 'E', icon: ICONS.cyclone, cd: 'cyclone' },
   { id: 'jump', code: 'Space', label: 'JUMP', icon: JUMP_ICON },
   { id: 'ultimate', code: 'KeyR', label: 'ULT', icon: ICONS.ultimate, cls: 'tb-ult' },
+  { id: 'gear', code: 'KeyG', label: 'GEAR', icon: ICONS.gear, cls: 'tb-gear' },
   { id: 'lock', code: 'KeyF', label: 'LOCK', icon: LOCK_ICON, cls: 'tb-lock' },
 ];
 
@@ -25,9 +26,10 @@ const ARC = {
   dash: [0, 1],
   crescent: [45, 1],
   jump: [90, 1],
-  cyclone: [10, 2],
-  ultimate: [45, 2],
-  lock: [82, 2],
+  cyclone: [6, 2],
+  ultimate: [33, 2],
+  gear: [60, 2],
+  lock: [87, 2],
 };
 
 const LOOK_GAIN = 1.7;
@@ -290,5 +292,12 @@ export class TouchControls {
     ult.el.classList.toggle('ready', e >= 1);
     ult.el.classList.toggle('cooling', e < 1);
     this.buttons.lock.el.classList.toggle('on', !!k.validLockTarget());
+    const gb = this.buttons.gear;
+    const nextCost = k.gear < 3 ? GEARS[k.gear + 1].cost : 0;
+    gb.cd.style.setProperty('--cd', k.nextGear || k.gear >= 3 ? '0' : (1 - clamp(k.gearGauge / nextCost, 0, 1)).toFixed(3));
+    gb.text.textContent = k.gear > 1 ? Math.ceil(k.gearGauge / GEARS[k.gear].drain) + 's' : '';
+    gb.el.classList.toggle('ready', !!k.nextGear);
+    gb.el.classList.toggle('active', k.gear > 1);
+    gb.el.classList.toggle('g3', k.gear === 3);
   }
 }

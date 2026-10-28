@@ -4,7 +4,11 @@ export class Cooldowns {
   constructor(durations) {
     this.durations = { ...durations };
     this.remainingTime = {};
-    for (const id of Object.keys(this.durations)) this.remainingTime[id] = 0;
+    this.current = {}; // duration of the running cooldown (it can be shortened, e.g. by a Gear)
+    for (const id of Object.keys(this.durations)) {
+      this.remainingTime[id] = 0;
+      this.current[id] = this.durations[id];
+    }
     this._readied = [];
   }
 
@@ -14,6 +18,7 @@ export class Cooldowns {
 
   start(id, duration = this.durations[id]) {
     this.remainingTime[id] = duration;
+    this.current[id] = duration;
   }
 
   remaining(id) {
@@ -22,7 +27,7 @@ export class Cooldowns {
 
   /** 1 = just started, 0 = ready. */
   fraction(id) {
-    const d = this.durations[id];
+    const d = this.current[id];
     return d > 0 ? Math.max(0, this.remainingTime[id]) / d : 0;
   }
 

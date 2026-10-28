@@ -2,7 +2,7 @@
 // A single instance is attached once; attach() is idempotent so listeners never duplicate.
 
 const GAME_KEYS = new Set([
-  'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyR', 'KeyF', 'KeyJ', 'KeyT', 'KeyM',
+  'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyR', 'KeyF', 'KeyG', 'KeyJ', 'KeyT', 'KeyM',
   'Space', 'ShiftLeft', 'ShiftRight', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab',
 ]);
 

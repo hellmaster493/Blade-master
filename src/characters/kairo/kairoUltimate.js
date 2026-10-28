@@ -343,7 +343,7 @@ export class CrimsonTempest {
     if (i % 3 === 1) g.fx.afterimage(k.model, { color: COLORS.crimson, life: 0.25, opacity: 0.35 });
     for (const target of targets) {
       const hit = {
-        damage: DAMAGE.ultCut, knockback: 0.3, lift: 0, stagger: 0.45, kind: 'light', crimson: i % 2 === 1,
+        damage: DAMAGE.ultCut * k.damageMul, knockback: 0.3, lift: 0, stagger: 0.45, kind: 'light', crimson: i % 2 === 1,
         source: k, dir: f.clone(), point: _p.clone(), ultimate: true,
       };
       const res = g.combat.applyHit(k, target, hit, this.cutTrackers[i]);
@@ -382,7 +382,7 @@ export class CrimsonTempest {
     for (const target of targets) {
       _p.set(target.position.x, target.position.y + 1.1, target.position.z);
       const hit = {
-        damage: DAMAGE.ultSever, knockback: 12, lift: 4, stagger: 0.9, kind: 'heavy', crimson: true,
+        damage: DAMAGE.ultSever * k.damageMul, knockback: 12, lift: 4, stagger: 0.9, kind: 'heavy', crimson: true,
         source: k, dir: f.clone(), point: _p.clone(), ultimate: true,
       };
       const res = g.combat.applyHit(k, target, hit, this.severTracker);
@@ -425,7 +425,7 @@ export class CrimsonTempest {
       if (dir.lengthSq() < 1e-4) dir.copy(k.facingDir);
       dir.normalize();
       const hit = {
-        damage: DAMAGE.ultShockwave, knockback: 9, lift: 3, stagger: 0.8, kind: 'heavy', crimson: true,
+        damage: DAMAGE.ultShockwave * k.damageMul, knockback: 9, lift: 3, stagger: 0.8, kind: 'heavy', crimson: true,
         source: k, dir, point: new THREE.Vector3(target.position.x, target.position.y + 1, target.position.z), ultimate: true,
       };
       const res = g.combat.applyHit(k, target, hit, this.shockTracker);

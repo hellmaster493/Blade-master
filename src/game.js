@@ -25,7 +25,7 @@ import { HUD } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
 import { ScreenFX } from './ui/screenfx.js';
 import { TouchControls } from './ui/touchControls.js';
-import { KAIRO, LOCK_ON_RANGE } from './config.js';
+import { KAIRO, LOCK_ON_RANGE, GEAR_GAUGE } from './config.js';
 import { clamp } from './core/mathutils.js';
 
 const SETTINGS_KEY = 'rift-arena-settings-v1';
@@ -155,7 +155,8 @@ export class Game {
       const pos = hit.point || target.anchor(new THREE.Vector3());
       this.hud.damageNumber(pos, result.damage, { crimson: hit.crimson, heavy: hit.kind === 'heavy' });
     });
-    ev.on('kill', ({ target }) => {
+    ev.on('kill', ({ attacker, target }) => {
+      if (attacker === this.player) this.player.addGauge(GEAR_GAUGE.perKill);
       if (target !== this.player) this.director.kills++;
     });
     ev.on('combo', ({ count }) => this.hud.comboHit(count));
@@ -186,6 +187,18 @@ export class Game {
     ev.on('playerDefeated', () => this.onDefeat());
     ev.on('poiseBreak', (e) => {
       if (e.isBoss) this.hud.message('GUARD BREAK!', 'small-msg', 1.0);
+    });
+    ev.on('gearChange', ({ gear, prev, name }) => {
+      this.music.setBoost(gear);
+      if (gear > prev) this.hud.message(`GEAR ${gear} — ${name}`, gear === 3 ? 'gear3-msg' : 'gear2-msg', 1.7);
+      else if (prev > 1 && !this.matchOver && !this.player.isDefeated()) this.hud.message('GEAR RELEASED', 'small-msg', 1);
+    });
+    ev.on('gearReady', (g) => {
+      const now = performance.now();
+      if (now - (this.lastGearReadyMsg || 0) < 4000) return;
+      this.lastGearReadyMsg = now;
+      this.hud.message(`GEAR ${g} READY — ${this.input.touchMode ? 'TAP GEAR' : 'PRESS G'}`, 'small-msg', 1.3);
+      this.audio.play('ready');
     });
     ev.on('bossPhase', () => {
       this.hud.message('THE WARDEN IS ENRAGED', 'boss-msg', 1.8);
@@ -390,6 +403,7 @@ export class Game {
     if (mode === 'training') this.hud.showBanner('TRAINING GROUNDS', 'Master the Blade');
     this.music.setMuffled(false);
     this.music.duck(false);
+    this.music.setBoost(1);
     this.music.start(mode === 'training' ? 'training' : 'battle');
     this.events.emit('matchStart', { mode });
   }
@@ -421,6 +435,7 @@ export class Game {
     this.enterTitle();
     this.music.setMuffled(false);
     this.music.duck(false);
+    this.music.setBoost(1);
     this.music.start('menu');
   }
 

@@ -47,8 +47,8 @@ window.T = {
       this._wired = true;
       const ev = R.game.events;
       ev.on('hit', (e) => this.hits.push({ attacker: e.attacker.team, target: e.target.id || 'player', dmg: e.result.damage, kind: e.hit.kind }));
-      for (const n of ['perfectDodge', 'cooldownReady', 'ultimateUsed', 'ultimateStage', 'denied', 'kill', 'victory', 'playerDefeated', 'waveStart']) {
-        ev.on(n, (p) => this.events.push([n, typeof p === 'string' ? p : (p && p.id) || null, R.game.simTime]));
+      for (const n of ['perfectDodge', 'cooldownReady', 'ultimateUsed', 'ultimateStage', 'denied', 'kill', 'victory', 'playerDefeated', 'waveStart', 'gearReady', 'gearAwaken', 'gearChange']) {
+        ev.on(n, (p) => this.events.push([n, typeof p === 'string' || typeof p === 'number' ? p : (p && (p.id || p.gear)) || null, R.game.simTime]));
       }
     }
   },
@@ -514,6 +514,132 @@ test('13. Performance + memory hygiene: bounded FX pools, stable scene graph, fa
   });
   const ok = r.n1 === r.n0 && r.maxParticles <= r.cap && r.ms < 8 && Object.values(r.fx).every((n) => n === 0);
   return { ok, info: `scene objects ${r.n0}→${r.n1}, peak particles ${r.maxParticles}/${r.cap}, ${r.ms.toFixed(2)} ms per sim step (no render), fx idle=${JSON.stringify(r.fx)}` };
+});
+
+test('14. Gears: gauge from hits, awaken Gale Drive › Crimson Overdrive, buffs, super armor, echo wave, drain + release', async (page) => {
+  const r = await page.evaluate(() => {
+    T.setup();
+    const k = T.k();
+    const R = T.R;
+    const out = {};
+    // Gear 1 baseline: run distance and a Quick Draw that feeds the gauge
+    R.press('KeyW');
+    T.run(0.6);
+    R.release('KeyW');
+    out.baseRun = k.position.z + 3;
+    T.run(0.5);
+    k.position.set(0, 0, -3);
+    k.facing = 0;
+    let id = T.dummy(0, -1.6);
+    T.run(0.1);
+    const g0 = k.gearGauge;
+    R.tap('Mouse0');
+    T.run(1);
+    out.gaugePerHit = k.gearGauge - g0;
+    // not enough gauge: denied, no state change
+    R.tap('KeyG');
+    T.run(0.05);
+    out.deniedState = k.state;
+    out.denied = T.events.filter((e) => e[0] === 'denied' && e[1] === 'gear').length;
+    // awaken Gear 2: invulnerable during the burst, the burst shockwave hurts nearby enemies
+    R.clearEnemies();
+    k.position.set(0, 0, -3);
+    id = T.dummy(0, -1);
+    T.run(0.1);
+    T.hits.length = 0;
+    k.gearGauge = 300;
+    R.tap('KeyG');
+    T.run(0.1);
+    out.awakenState = k.state;
+    out.invuln = k.isInvulnerable();
+    T.run(0.8);
+    out.burstDmg = T.dmgTo(id);
+    out.gear2 = k.gear;
+    out.stateAfter = k.state;
+    R.clearEnemies();
+    k.position.set(0, 0, -3);
+    const z0 = k.position.z;
+    R.press('KeyW');
+    T.run(0.6);
+    R.release('KeyW');
+    out.g2Run = k.position.z - z0;
+    T.run(0.5);
+    // Gear 2 Quick Draw: faster and stronger
+    k.position.set(0, 0, -3);
+    k.facing = 0;
+    id = T.dummy(0, -1.6);
+    T.run(0.1);
+    T.hits.length = 0;
+    R.tap('Mouse0');
+    let frames = 0;
+    T.run(1, 1 / 60, () => {
+      if (k.act.move) frames++;
+    });
+    out.g2Frames = frames;
+    out.g2Hit = T.dmgTo(id);
+    // Gear 3: super armor (no flinch) and reduced damage
+    R.tap('KeyG');
+    T.run(1.0);
+    out.gear3 = k.gear;
+    const e = R.enemy(id);
+    e.passive = false;
+    e.position.set(0, 0, k.position.z + 1.3);
+    e.attackCd = 0;
+    e.chooseAttack(1.4);
+    const hp0 = k.hp;
+    let hurt = false;
+    T.run(1.2, 1 / 60, () => {
+      if (k.state === 'hurt') hurt = true;
+    });
+    out.g3Took = hp0 - k.hp;
+    out.g3Flinched = hurt;
+    // the echo wave of a Gear 3 combo reaches far beyond sword range
+    R.clearEnemies();
+    k.position.set(0, 0, -3);
+    k.facing = 0;
+    R.game.cameraRig.yaw = 0;
+    const far = T.dummy(0, 2.5);
+    T.run(0.1);
+    T.hits.length = 0;
+    R.tap('Mouse0');
+    T.run(0.8);
+    out.echoFar = T.dmgTo(far);
+    // the gauge drains while awakened; empty → back to Gear 1
+    const gd = k.gearGauge;
+    T.run(1);
+    out.drain = gd - k.gearGauge;
+    k.gearGauge = 5;
+    T.run(1);
+    out.afterDrain = k.gear;
+    // G at Gear 3 releases manually; restart resets everything
+    k.gearGauge = 300;
+    R.tap('KeyG');
+    T.run(0.9);
+    R.tap('KeyG');
+    T.run(0.9);
+    out.beforeManual = k.gear;
+    R.tap('KeyG');
+    T.run(0.1);
+    out.afterManual = k.gear;
+    k.gearGauge = 300;
+    R.tap('KeyG');
+    T.run(0.9);
+    R.game.startMatch('training');
+    out.restart = { gear: k.gear, gauge: k.gearGauge, aura: k.gearVisuals.aura.visible };
+    out.changes = T.events.filter((x) => x[0] === 'gearChange').map((x) => x[1]).join('');
+    return out;
+  });
+  const ok =
+    r.gaugePerHit === 4 && r.deniedState === 'move' && r.denied === 1 &&
+    r.awakenState === 'awaken' && r.invuln && r.burstDmg > 0 && r.gear2 === 2 && r.stateAfter === 'move' &&
+    r.g2Run > r.baseRun * 1.15 && r.g2Hit >= 48 && r.g2Hit <= 57 && r.g2Frames < 28 &&
+    r.gear3 === 3 && r.g3Took > 0 && !r.g3Flinched && r.echoFar > 0 &&
+    r.drain > 10 && r.afterDrain === 1 && r.beforeManual === 3 && r.afterManual === 1 &&
+    r.restart.gear === 1 && r.restart.gauge === 0 && !r.restart.aura && r.changes === '2312312';
+  return {
+    ok,
+    info: `+${r.gaugePerHit} gauge/hit, denied=${r.denied}, burst dmg ${r.burstDmg}, run 0.6s ${r.baseRun.toFixed(2)}→${r.g2Run.toFixed(2)} m, G2 Quick Draw ${r.g2Hit} dmg in ${r.g2Frames} frames, G3 took ${r.g3Took} (flinched=${r.g3Flinched}), echo hit ${r.echoFar} at 5.5 m, drain ${r.drain.toFixed(1)}/s → gear ${r.afterDrain}, manual release ${r.beforeManual}→${r.afterManual}, gear changes ${r.changes}, restart ${JSON.stringify(r.restart)}`,
+  };
 });
 
 // --------------------------------------------------------------------------- runner

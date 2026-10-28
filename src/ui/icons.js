@@ -47,6 +47,9 @@ export const ICONS = {
   ultimate: `<svg viewBox="0 0 64 64"><path d="M6 46 Q30 0 60 22 Q32 12 6 46 Z" fill="#ff2a48"/>
     <path d="M14 56 L50 8" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
     <path d="M8 30 L56 46 M20 12 L44 58" stroke="#5ec8ff" stroke-width="2" stroke-linecap="round" opacity=".9"/></svg>`,
+  gear: `<svg viewBox="0 0 64 64"><path fill="none" stroke="#dff4ff" stroke-width="4.5" stroke-linejoin="round"
+    d="M32 5 L37 13 L45 9 L47 18 L56 18 L53 27 L60 32 L53 37 L56 46 L47 46 L45 55 L37 51 L32 59 L27 51 L19 55 L17 46 L8 46 L11 37 L4 32 L11 27 L8 18 L17 18 L19 9 L27 13 Z"/>
+    <circle cx="32" cy="32" r="10" fill="#ff2a48"/><circle cx="32" cy="32" r="4" fill="#ffe0e6"/></svg>`,
   dash: `<svg viewBox="0 0 64 64"><path d="M8 22 L40 22 M4 32 L48 32 M10 42 L38 42" stroke="#9ad8ff" stroke-width="4" stroke-linecap="round"/>
     <path d="M44 16 L58 32 L44 48" fill="none" stroke="#eaf8ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 };
