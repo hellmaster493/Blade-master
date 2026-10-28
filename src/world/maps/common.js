@@ -4,6 +4,10 @@ import * as THREE from 'three';
 import { ARENA } from '../../config.js';
 import { toon } from '../materials.js';
 
+// Ground textures span the whole platform; phones get half the resolution.
+export const GROUND_TEX = typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches ? 1024 : 2048;
+export const GROUND_PX = GROUND_TEX / (2 * (ARENA.wallRadius + 1.5)); // texture pixels per metre
+
 export function makeCanvas(w, h = w) {
   const c = document.createElement('canvas');
   c.width = w;
@@ -203,11 +207,17 @@ const WEATHER_VERT = /* glsl */ `
   uniform float uSize;
   uniform float uScale;
   uniform float uRise;
+  uniform vec2 uCenter;
+  uniform float uBox;
   varying vec3 vColor;
   varying float vFade;
   varying float vRot;
   void main() {
     vec3 p = position;
+    // a box of weather that wraps around the player: particles stay put in the world,
+    // and the ones that fall too far behind reappear ahead
+    p.x += floor((uCenter.x - p.x + uBox) / (2.0 * uBox)) * 2.0 * uBox;
+    p.z += floor((uCenter.y - p.z + uBox) / (2.0 * uBox)) * 2.0 * uBox;
     float t = uTime * uSpeed * aSeed.y;
     p.y = uRise > 0.5 ? mod(position.y + t, uHeight) : uHeight - mod(uHeight - position.y + t, uHeight);
     p.x += sin(uTime * 0.8 * aSeed.y + aSeed.z) * uSway * (0.5 + aSeed.y);
@@ -251,18 +261,16 @@ const KINDS = { soft: 0, petal: 1, rain: 2, snow: 0, ember: 0 };
  * Falling (or rising) particles over the arena, animated entirely on the GPU.
  * kind: 'soft' | 'snow' | 'ember' | 'petal' | 'rain'
  */
-export function addWeather(arena, { count = 600, radius = 36, height = 22, speed = 1.5, sway = 0.6, size = 0.12, colors = [0xffffff], kind = 'soft', additive = false, rise = false, opacity = 0.8, seed = 7 } = {}) {
+export function addWeather(arena, { count = 600, radius = 30, height = 22, speed = 1.5, sway = 0.6, size = 0.12, colors = [0xffffff], kind = 'soft', additive = false, rise = false, opacity = 0.8, seed = 7 } = {}) {
   const rand = rng(seed);
   const pos = new Float32Array(count * 3);
   const seedA = new Float32Array(count * 4);
   const col = new Float32Array(count * 3);
   const c = new THREE.Color();
   for (let i = 0; i < count; i++) {
-    const a = rand() * Math.PI * 2;
-    const r = Math.sqrt(rand()) * radius;
-    pos[i * 3] = Math.sin(a) * r;
+    pos[i * 3] = (rand() * 2 - 1) * radius;
     pos[i * 3 + 1] = rand() * height;
-    pos[i * 3 + 2] = Math.cos(a) * r;
+    pos[i * 3 + 2] = (rand() * 2 - 1) * radius;
     seedA[i * 4] = rand();
     seedA[i * 4 + 1] = 0.6 + rand() * 0.8;
     seedA[i * 4 + 2] = rand() * 6.283;
@@ -288,6 +296,8 @@ export function addWeather(arena, { count = 600, radius = 36, height = 22, speed
       uScale: { value: arena.pixelScale },
       uRise: { value: rise ? 1 : 0 },
       uOpacity: { value: opacity },
+      uCenter: { value: new THREE.Vector2(arena.focus.x, arena.focus.z) },
+      uBox: { value: radius },
     },
     vertexShader: WEATHER_VERT,
     fragmentShader: WEATHER_FRAG,

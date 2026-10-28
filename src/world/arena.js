@@ -6,6 +6,9 @@ import * as THREE from 'three';
 import { MAPS, mapById } from './maps/index.js';
 import { SKY_VERT } from './maps/common.js';
 
+const SHADOW_HALF = 32;
+const SUN_DIST = 70;
+
 export class Arena {
   constructor(scene) {
     this.scene = scene;
@@ -24,6 +27,8 @@ export class Arena {
     this.updaters = [];
     this.dimHooks = [];
     this.weather = [];
+    this.focus = new THREE.Vector3();
+    this.sunDir = new THREE.Vector3(-18, 34, 16).normalize();
     this.buildLights();
     this.buildSky();
   }
@@ -44,12 +49,13 @@ export class Arena {
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     const sc = this.sun.shadow.camera;
-    sc.left = -30;
-    sc.right = 30;
-    sc.top = 30;
-    sc.bottom = -30;
+    // the shadow box follows the action (see setFocus), so the big arena keeps crisp shadows
+    sc.left = -SHADOW_HALF;
+    sc.right = SHADOW_HALF;
+    sc.top = SHADOW_HALF;
+    sc.bottom = -SHADOW_HALF;
     sc.near = 1;
-    sc.far = 110;
+    sc.far = 150;
     this.sun.shadow.bias = -0.0006;
     this.sun.shadow.normalBias = 0.03;
     s.add(this.sun);
@@ -120,7 +126,8 @@ export class Arena {
     this.hemi.color.set(hemi[0]);
     this.hemi.groundColor.set(hemi[1]);
     this.sun.color.set(sun[0]);
-    this.sun.position.set(...sun[2]);
+    this.sunDir.set(...sun[2]).normalize();
+    this.setFocus(this.focus);
     this.accent.color.set(accent[0]);
     this.accent.position.set(...accent[2]);
     this.base = { hemi: hemi[2], sun: sun[1], accent: accent[1] };
@@ -161,6 +168,17 @@ export class Arena {
     this.colliders.length = 0;
     this.mapGroup = null;
     this.map = null;
+  }
+
+  /** Centres the shadow box and the weather on the action (snapped to shadow texels to avoid shimmer). */
+  setFocus(p) {
+    this.focus.copy(p);
+    const texel = (2 * SHADOW_HALF) / this.sun.shadow.mapSize.x;
+    const x = Math.round(p.x / texel) * texel;
+    const z = Math.round(p.z / texel) * texel;
+    this.sun.target.position.set(x, 0, z);
+    this.sun.position.set(x + this.sunDir.x * SUN_DIST, this.sunDir.y * SUN_DIST, z + this.sunDir.z * SUN_DIST);
+    for (const m of this.weather) m.uniforms.uCenter.value.set(p.x, p.z);
   }
 
   setPixelScale(v) {

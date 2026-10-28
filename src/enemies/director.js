@@ -232,8 +232,8 @@ export class WaveDirector {
     const homes = [0, 1.35, -1.35];
     CLANS.forEach((clan, ci) => {
       const a = homes[ci];
-      const cx = Math.sin(a) * 11;
-      const cz = Math.cos(a) * 11 - 3;
+      const cx = Math.sin(a) * 14;
+      const cz = Math.cos(a) * 14 - 3;
       clan.members.slice(0, this.brawlSize).forEach((member, mi) => {
         const f = new Fighter(g, clan, member);
         const off = (mi - (this.brawlSize - 1) / 2) * 1.7;

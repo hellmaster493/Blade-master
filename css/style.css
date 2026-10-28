@@ -390,6 +390,8 @@ html, body {
 }
 
 .enemy-bars, .damage-numbers { position: absolute; inset: 0; }
+.minimap { position: absolute; top: clamp(70px, 10vh, 90px); right: clamp(12px, 2vw, 28px); width: clamp(120px, 11vw, 160px); height: clamp(120px, 11vw, 160px); border-radius: 50%; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); pointer-events: none; }
+body.touch .minimap { top: calc(112px + env(safe-area-inset-top, 0px)); left: calc(14px + env(safe-area-inset-left, 0px)); right: auto; width: 92px; height: 92px; }
 .ebar {
   position: absolute;
   left: 0;
@@ -724,6 +726,7 @@ body.touch .lock-label { bottom: auto; top: calc(110px + env(safe-area-inset-top
 }
 @media (max-width: 600px) {
   .wave-panel, body.touch .wave-panel { top: calc(112px + env(safe-area-inset-top, 0px)); left: 14px; right: auto; text-align: left; }
+  body.touch .minimap { top: calc(160px + env(safe-area-inset-top, 0px)); }
   .wave-name { font-size: 14px; }
   .wave-sub { font-size: 10px; }
   body.touch .boss-bar { top: 156px; width: 86vw; }

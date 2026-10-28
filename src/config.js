@@ -2,9 +2,9 @@
 import { DEG } from './core/mathutils.js';
 
 export const ARENA = {
-  radius: 26, // playable radius
-  wallRadius: 27.5,
-  cameraRadius: 31,
+  radius: 44, // playable radius (about 88 m across)
+  wallRadius: 45.5,
+  cameraRadius: 49,
 };
 
 export const KAIRO = {

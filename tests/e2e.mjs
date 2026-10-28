@@ -974,6 +974,14 @@ if (want(18)) {
         T.run(0.6, 1 / 60, () => (gap = Math.min(gap, Math.hypot(k.position.x - c.x, k.position.z - c.z) - c.r - k.radius)));
         R.release('KeyW');
         m.gap = +gap.toFixed(3); // closest approach: reaches the prop but never passes into it
+        // the arena is big: the boundary sits about 44 m out
+        k.position.set(80, 0, 0);
+        T.run(0.05);
+        m.edge = +Math.hypot(k.position.x, k.position.z).toFixed(2);
+        // the minimap draws something
+        const mm = document.querySelector('.minimap');
+        const px = mm.getContext('2d').getImageData(mm.width / 2, mm.height / 2 - 4, 1, 1).data;
+        m.minimap = mm.clientWidth > 0 && px[3] > 0;
         // a swing lands
         k.position.set(0, 0, -3);
         k.facing = 0;
@@ -992,12 +1000,12 @@ if (want(18)) {
     const [, rift2, rift3] = r.snap.filter((x) => x[0] === 'rift');
     const [sak1, sak2] = r.snap.filter((x) => x[0] === 'sakura');
     const clean = rift2.join() === rift3.join() && sak1.join() === sak2.join();
-    const played = r.maps.every((m) => m.colliders > 0 && m.weather > 0 && m.sky && m.moved > 2 && m.gap > -0.02 && m.gap < 0.05 && m.dmg > 0);
+    const played = r.maps.every((m) => m.colliders > 0 && m.weather > 0 && m.sky && m.moved > 2 && m.gap > -0.02 && m.gap < 0.05 && m.dmg > 0 && m.edge > 43 && m.edge < 44.1 && m.minimap);
     const ok = picked.map === 'sakura' && picked.selected === 'sakura' && picked.saved === 'sakura' && played && clean
       && new Set(r.maps.map((m) => m.id)).size === 5;
     res = {
       ok,
-      info: `picker → ${picked.map} (saved ${picked.saved}); ` + r.maps.slice(0, 5).map((m) => `${m.id}: ${m.colliders} props, moved ${m.moved} m, gap ${m.gap}, hit ${m.dmg}`).join(' | ') + `; revisit objects/geometries/textures rift ${rift2.slice(1).join('/')}=${rift3.slice(1).join('/')}, sakura ${sak1.slice(1).join('/')}=${sak2.slice(1).join('/')}`,
+      info: `picker → ${picked.map} (saved ${picked.saved}); ` + r.maps.slice(0, 5).map((m) => `${m.id}: ${m.colliders} props, edge ${m.edge} m, moved ${m.moved} m, gap ${m.gap}, hit ${m.dmg}`).join(' | ') + `; revisit objects/geometries/textures rift ${rift2.slice(1).join('/')}=${rift3.slice(1).join('/')}, sakura ${sak1.slice(1).join('/')}=${sak2.slice(1).join('/')}`,
     };
     await page.evaluate(() => window.__RIFT__.map('rift'));
   } catch (e) {

@@ -639,6 +639,7 @@ export class Game {
       this.fx.updateTrail(this.simTime);
       this.cameraRig.update(realDt, { player: this.player, target: null, input: null, colliders: [] });
     }
+    this.arena.setFocus(this.player.position);
     this.arena.update(realDt);
     this.screen.update(realDt, this.state === 'playing' ? clamp(1 - this.player.hp / (this.player.maxHp * 0.3), 0, 1) : 0);
     this.audio.setAura(this.state === 'playing' ? this.player.gear : 0);

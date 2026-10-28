@@ -667,7 +667,7 @@ export class Fighter {
     }
     if (nearest) {
       _v.set(this.position.x - nearest.position.x, 0, this.position.z - nearest.position.z).normalize();
-      _v.addScaledVector(_v2.set(-this.position.x, 0, -this.position.z).normalize(), Math.hypot(this.position.x, this.position.z) > 18 ? 0.8 : 0.2).normalize();
+      _v.addScaledVector(_v2.set(-this.position.x, 0, -this.position.z).normalize(), Math.hypot(this.position.x, this.position.z) > ARENA.radius * 0.7 ? 0.8 : 0.2).normalize();
       const yaw = Math.atan2(_v.x, _v.z);
       this.facing = approachAngle(this.facing, yaw, 8 * dt);
       const sp = this.style.speed * 0.9;

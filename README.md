@@ -121,17 +121,19 @@ The **gear gauge** sits under the ultimate bar. It has three segments (300 point
 
 ## Arenas
 
-Choose the arena under **Choose your arena** on the title screen. The 3D background swaps live so you can preview it, and the choice is remembered. Every arena has the same fighting circle and boundary, so moves and enemies behave the same everywhere, but each has its own sky, ground, props, lighting, fog and weather.
+Choose the arena under **Choose your arena** on the title screen. The 3D background swaps live so you can preview it, and the choice is remembered. Every arena is a big circle about **88 m across** (radius 44 m, nearly three times the area of the first version), with the same boundary and rules everywhere. Each has its own sky, ground, lighting, fog and weather, and its own layout of landmarks and cover:
 
-| Arena | Setting | Weather |
+| Arena | Layout | Weather |
 |---|---|---|
-| **Rift Sanctum** | The original: floating stone ruins with rune pillars and braziers under a torn night sky | Rift motes drifting up |
-| **Sakura Shrine** | Moonlit shrine courtyard at dusk: raked gravel, stone lanterns, vermilion torii gates, cherry trees, a shrine hall and pagoda under a huge moon | Falling cherry petals |
-| **Neon Skyline** | Wet rooftop helipad with neon floor strips, AC units, a water tank and antenna, holo billboards, a city of lit towers far below and flying traffic | Rain |
-| **Frozen Peak** | Snowbound summit with a frozen pond, glowing ice-crystal clusters, snowy pines and peaks under the aurora | Snowfall |
-| **Inferno Caldera** | Basalt island with glowing magma cracks in a lava lake, obsidian spikes, rock spires and a smoking volcano | Rising embers and ash |
+| **Rift Sanctum** | Floating ruins under a torn night sky. An inner sanctum ring of rune pillars and braziers around the sigil. Four ruined gateways (one collapsed), arcs of broken wall for cover and glowing rift crystals in the middle ring. Shattered pillars around the rim, with violet rift cracks glowing in the outer floor | Rift motes drifting up |
+| **Sakura Shrine** | Moonlit shrine courtyard. A raked gravel garden with zen stones at the centre, and a lantern-lined paved path through two torii to the main gate. A koi pond with fish, a bell tower, a raised kagura dance stage, and cherry trees inside and outside the rope fence | Falling cherry petals |
+| **Neon Skyline** | Wet skyscraper rooftop: a helipad with LED strips and a lit stairwell hut. A giant KUROKAZE billboard, water towers, an antenna mast with a beacon, AC unit clusters, solar panel rows and skylights. Holo billboards and a city of lit towers all around, with flying traffic | Rain |
+| **Frozen Peak** | Snowbound summit under the aurora. A frozen lake at the centre, glowing ice-crystal clusters, snow-capped boulder piles, pine groves at the edge, an ice arch and a cairn with prayer flags | Snowfall |
+| **Inferno Caldera** | Basalt island in a lava lake. Four lava pools you have to fight around, obsidian spike clusters and basalt column formations. Rune obelisks around the magma ring at the centre, and a smoking volcano on the horizon | Rising embers and ash |
 
-Props are solid: you, enemies and NPCs collide with them. Tall ones also keep the camera out. Switching arenas frees the old one's geometry, materials and textures.
+Props are solid: you, enemies and NPCs collide with them. Tall ones also keep the camera out, and waist-high ones let it pass over. The **minimap** (top right; top left on touch screens) shows the whole arena, rotated so up is the way the camera faces. It shows props, Kairo's facing, your lock target, monsters in red and clan fighters in their clan colours (crossed out when KO'd).
+
+To keep the bigger arenas sharp and smooth, the sun's shadow box follows the action and the weather wraps around you. Ground textures are 2048 px (1024 on phones). Switching arenas frees the old one's geometry, materials and textures.
 
 ## Clan Brawl
 
@@ -190,7 +192,7 @@ src/npcs/                      human clan fighters: model (Kairo's skeleton, own
 src/fx/                        pooled particles, debris, sword trail, slash arcs, rings, telegraphs, flashes, afterimages
 src/world/                     arena host, camera rig, cel-shading/outline materials, canvas textures
 src/world/maps/                the five arenas plus shared sky, barrier, weather and prop helpers
-src/ui/                        HUD, menus, touch controls, screen effects, original SVG icons/portrait
+src/ui/                        HUD, minimap, menus, touch controls, screen effects, original SVG icons/portrait
 tests/e2e.mjs                  automated browser tests (npm test)
 dev/poses.html, dev/viewer.html  pose/model inspection pages for development
 ```
@@ -229,7 +231,7 @@ npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwr
 15. Touchscreen, driven with real touch events in a phone-sized context: the joystick moves, dragging turns the camera, holding SLASH chains Quick Draw › Crosswind › Gale Breaker, the Q button casts, the pause button pauses, and nothing scrolls sideways
 16. The soundtrack stays silent until a real click, then measurably plays and changes through title › training › boss › victory, and muffles on pause
 17. Mobile audio unlock under emulated iOS rules (audio may start only on touch-end, click or key): the first tap anywhere starts the music, the chip never claims music is on while audio is blocked, and a tap after an interruption brings it back
-18. Maps: the title picker switches the live arena and saves the choice. Every map plays (running, a prop that stops you, a landed hit), and revisiting maps leaves the scene-object, geometry and texture counts unchanged
+18. Maps: the title picker switches the live arena and saves the choice. Every map plays (running, a prop that stops you, a landed hit), its boundary sits about 44 m out, and the minimap draws. Revisiting maps leaves the scene-object, geometry and texture counts unchanged
 19. Clan Brawl: nine fighters in three clans talk during the standoff without swinging, then a 3-2-1 countdown. Over 40 s they fight each other with blocks, dodges, flinches, knockdowns and KOs, and say many different lines. Kairo KOs one, a guarding fighter blocks his swing, and finishing the rest wins the brawl with the right results screen. Nothing is left in the scene afterwards
 20. No runtime or console errors
 

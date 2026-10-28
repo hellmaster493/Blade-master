@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { PORTRAIT, ICONS } from './icons.js';
 import { KAIRO, ABILITIES, GEARS, GEAR_GAUGE, MAX_GEAR } from '../config.js';
 import { damp, clamp } from '../core/mathutils.js';
+import { Minimap } from './minimap.js';
 
 const _v = new THREE.Vector3();
 
@@ -87,6 +88,7 @@ export class HUD {
     this.lockLabel = el('div', 'lock-label hidden', r);
     this.barLayer = el('div', 'enemy-bars', r);
     this.numLayer = el('div', 'damage-numbers', r);
+    this.minimap = new Minimap(r, this.game);
     el('div', 'hint', r, '<b>WASD</b> move · <b>Mouse</b> camera · <b>LMB</b> attack · <b>Q/E</b> skills · <b>R</b> ultimate · <b>Shift</b> dash · <b>Space</b> jump · <b>F</b> lock · <b>Esc</b> pause');
   }
 
@@ -188,6 +190,7 @@ export class HUD {
     const k = g.player;
     const camera = g.camera;
     camera.updateMatrixWorld();
+    this.minimap.update(dt);
     const w = window.innerWidth;
     const h = window.innerHeight;
 
