@@ -21,27 +21,50 @@ export class AudioEngine {
     return !!this.ctx && this.ctx.state === 'running';
   }
 
+  /**
+   * Creates and/or resumes the context. Call from user-gesture handlers. Mobile browsers only
+   * honour this inside touch-end/click/key events, so callers keep trying until it is running.
+   */
   unlock() {
-    try {
-      if (!this.ctx) {
+    if (!this.ctx) {
+      try {
         const Ctor = window.AudioContext || window.webkitAudioContext;
         if (!Ctor) return;
         this.ctx = new Ctor();
-        this.master = this.ctx.createGain();
-        // A gentle compressor keeps stacked hits from clipping.
-        this.comp = this.ctx.createDynamicsCompressor();
-        this.comp.threshold.value = -14;
-        this.comp.ratio.value = 6;
-        this.master.connect(this.comp).connect(this.ctx.destination);
-        this._applyVolume();
-        const len = this.ctx.sampleRate * 2;
-        this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-        const data = this.noise.getChannelData(0);
-        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      } catch {
+        this.ctx = null;
+        return;
       }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      this.master = this.ctx.createGain();
+      // A gentle compressor keeps stacked hits from clipping.
+      this.comp = this.ctx.createDynamicsCompressor();
+      this.comp.threshold.value = -14;
+      this.comp.ratio.value = 6;
+      this.master.connect(this.comp).connect(this.ctx.destination);
+      this._applyVolume();
+      const len = this.ctx.sampleRate * 2;
+      this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = this.noise.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    }
+    // iOS Safari: play through the ringer/silent switch like other games and media do
+    try {
+      if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback';
     } catch {
-      this.ctx = null;
+      /* not supported */
+    }
+    if (this.ctx.state !== 'running') {
+      try {
+        const p = this.ctx.resume();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+        // iOS only fully unlocks output once a source starts inside the gesture
+        const prime = this.ctx.createBufferSource();
+        prime.buffer = this.ctx.createBuffer(1, 1, 22050);
+        prime.connect(this.ctx.destination);
+        prime.start(0);
+      } catch {
+        /* refused outside a gesture; the next tap retries */
+      }
     }
   }
 

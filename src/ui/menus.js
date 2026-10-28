@@ -89,7 +89,8 @@ export class Menus {
     const g = this.game;
     const chip = this.root.querySelector('.music-chip');
     if (!chip) return;
-    const started = g.music && g.music.playing;
+    // only claim music is on when the audio clock is actually running
+    const started = g.music && g.music.playing && g.audio.ctx && g.audio.ctx.state === 'running';
     const on = g.settings.musicOn;
     chip.classList.toggle('on', started && on);
     chip.querySelector('.mc-text').textContent = !started ? 'Tap to start music' : on ? 'Music on' : 'Music off';

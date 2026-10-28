@@ -193,24 +193,57 @@ export class Game {
     });
   }
 
-  /** Browsers only allow sound after a user gesture: the first tap, click or key starts the music. */
+  /**
+   * Browsers only allow sound after a user gesture. Every tap, click or key retries until the
+   * audio clock is really running (iOS ignores touch-down and needs touch-end), then the
+   * soundtrack starts. If audio is interrupted later, the next tap resumes it.
+   */
   wireAudioUnlock() {
-    const unlock = () => {
+    const events = ['pointerdown', 'pointerup', 'touchend', 'mousedown', 'click', 'keydown'];
+    const tryUnlock = () => {
       this.audio.unlock();
-      if (!this.audio.ctx) return;
-      if (this.audioUnlockedAt < 0) this.audioUnlockedAt = performance.now();
-      this.music.start(this.musicModeForState());
-      this.menus.syncMusic();
-      for (const t of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(t, unlock, true);
+      const ctx = this.audio.ctx;
+      if (!ctx) return;
+      if (!this.audioWatched) {
+        this.audioWatched = true;
+        ctx.addEventListener('statechange', () => this.onAudioState());
+      }
+      this.onAudioState();
     };
-    for (const t of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(t, unlock, true);
+    this.armAudioUnlock = () => {
+      if (this.unlockArmed) return;
+      this.unlockArmed = true;
+      for (const t of events) window.addEventListener(t, tryUnlock, true);
+    };
+    this.disarmAudioUnlock = () => {
+      if (!this.unlockArmed) return;
+      this.unlockArmed = false;
+      for (const t of events) window.removeEventListener(t, tryUnlock, true);
+    };
+    this.armAudioUnlock();
     // a hidden tab can't keep timers running: pause the audio clock and pick up again on return
     document.addEventListener('visibilitychange', () => {
       const ctx = this.audio.ctx;
       if (!ctx) return;
-      if (document.hidden) ctx.suspend();
-      else ctx.resume();
+      if (document.hidden) {
+        ctx.suspend().catch(() => {});
+      } else {
+        ctx.resume().catch(() => {}).finally(() => this.onAudioState());
+      }
     });
+  }
+
+  onAudioState() {
+    const ctx = this.audio.ctx;
+    if (ctx && ctx.state === 'running') {
+      if (this.audioUnlockedAt < 0) this.audioUnlockedAt = performance.now();
+      if (!this.music.playing) this.music.start(this.musicModeForState());
+      this.disarmAudioUnlock();
+    } else if (ctx && !document.hidden) {
+      // blocked or interrupted (e.g. a phone call on iOS): the next gesture resumes it
+      this.armAudioUnlock();
+    }
+    this.menus.syncMusic();
   }
 
   musicModeForState() {
@@ -223,12 +256,10 @@ export class Game {
   }
 
   toggleMusic() {
-    // the tap that first enables audio shouldn't also switch the music straight off
-    if (performance.now() - this.audioUnlockedAt < 500) {
-      this.applySettings({ musicOn: true });
-    } else {
-      this.applySettings({ musicOn: !this.settings.musicOn });
-    }
+    // A tap that is (re)starting blocked audio means "play music", never "turn it off".
+    const ctx = this.audio.ctx;
+    const wasAudible = ctx && ctx.state === 'running' && this.audioUnlockedAt > 0 && performance.now() - this.audioUnlockedAt > 400;
+    this.applySettings({ musicOn: wasAudible ? !this.settings.musicOn : true });
     this.menus.syncMusic();
   }
 

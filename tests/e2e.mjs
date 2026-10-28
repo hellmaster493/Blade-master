@@ -708,9 +708,82 @@ if (!only || only === '16') {
   console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
 }
 
+// the main page may still be rendering in real time; stop it so later contexts get the CPU
+await page.goto('about:blank');
+
+// --------------------------------------------------------------------------- mobile audio unlock
+// iOS Safari only lets audio start inside touch-end/click/key handlers (not touch-down).
+// Emulate that rule so the music must survive it: first tap anywhere starts it, the chip never lies.
+if (!only || only === '17') {
+  ran++;
+  const name = '17. Mobile audio unlock under iOS gesture rules: first tap starts music, chip state is honest, interruptions recover';
+  const started = Date.now();
+  let res;
+  const ictx = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const ip = await ictx.newPage();
+  ip.on('pageerror', (e) => errors.push('[ios-audio] ' + e.message));
+  try {
+    await ip.addInitScript(() => {
+      let gesture = false;
+      for (const t of ['touchend', 'click', 'keydown', 'mouseup']) {
+        window.addEventListener(t, () => {
+          gesture = true;
+          setTimeout(() => (gesture = false), 0);
+        }, true);
+      }
+      const Real = window.AudioContext;
+      window.AudioContext = class extends Real {
+        constructor(...a) {
+          super(...a);
+          if (!gesture) super.suspend();
+        }
+        resume() {
+          return gesture ? super.resume() : Promise.reject(new Error('not allowed (no gesture)'));
+        }
+      };
+      window.webkitAudioContext = window.AudioContext;
+    });
+    const cdp = await ictx.newCDPSession(ip);
+    const tap = async (x, y) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    await ip.goto(`http://localhost:${port}/index.html?noprewarm`);
+    await ip.waitForFunction('!!window.__RIFT__', null, { timeout: 30000 });
+    const st = () => ip.evaluate(() => {
+      const g = window.__RIFT__.game;
+      return { ctx: g.audio.ctx ? g.audio.ctx.state : 'none', on: g.settings.musicOn, chip: document.querySelector('.mc-text').textContent };
+    });
+    // wait for each expected state rather than sleeping (CPU-starved CI can be slow)
+    const until = (fn) => ip.waitForFunction(fn, null, { timeout: 15000 }).catch(() => {});
+    const chipIs = (text) => `document.querySelector('.mc-text').textContent === ${JSON.stringify(text)}`;
+    await tap(700, 250);
+    await until(chipIs('Music on'));
+    const first = await st();
+    await ip.evaluate(() => window.__RIFT__.game.audio.ctx.suspend());
+    await until(chipIs('Tap to start music'));
+    const interrupted = await st();
+    const c = await ip.evaluate(() => {
+      const b = document.querySelector('.music-chip').getBoundingClientRect();
+      return [b.x + b.width / 2, b.y + b.height / 2];
+    });
+    await tap(c[0], c[1]);
+    await until(chipIs('Music on'));
+    const recovered = await st();
+    const ok = first.ctx === 'running' && first.chip === 'Music on' && interrupted.chip === 'Tap to start music'
+      && recovered.ctx === 'running' && recovered.on && recovered.chip === 'Music on';
+    res = { ok, info: `first tap → ${first.ctx}/'${first.chip}'; interrupted → '${interrupted.chip}'; chip tap → ${recovered.ctx}/'${recovered.chip}'` };
+  } catch (e) {
+    res = { ok: false, info: 'threw: ' + e.message };
+  }
+  await ictx.close();
+  if (!res.ok) failed++;
+  console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
+}
+
 const errOk = errors.length === 0;
 ran++;
-console.log(`${errOk ? 'PASS' : 'FAIL'}  17. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
+console.log(`${errOk ? 'PASS' : 'FAIL'}  18. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
 if (!errOk) failed++;
 console.log(`\n${ran - failed}/${ran} checks passed. Screenshots: ${path.relative(process.cwd(), OUT)}/`);
 await browser.close();

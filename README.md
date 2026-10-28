@@ -48,7 +48,7 @@ The game has a futuristic dark-synthwave soundtrack, composed procedurally and p
 | Boss | Darker progression with a lead melody and tom fills (132 BPM). It speeds up to 140 BPM and the lead jumps an octave when Gorvath enrages |
 | Victory / defeat | A bright swelling victory theme, or a slow, filtered lament |
 
-Changes land on the next beat. Pausing muffles the music, the ultimate dips it for the cinematic, and the audio clock pauses while the tab is hidden.
+Changes land on the next beat. Pausing muffles the music, the ultimate dips it for the cinematic, and the audio clock pauses while the tab is hidden. On iPhone and iPad the game asks iOS to play through the ringer/silent switch, like other games and media players. After an interruption such as a phone call, the next tap resumes the music.
 
 ### Touchscreen
 
@@ -151,7 +151,7 @@ dev/poses.html, dev/viewer.html  pose/model inspection pages for development
 npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwright install chromium
 ```
 
-`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **16/16** checks (`ONLY=<n> npm test` runs a single one):
+`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **17/17** checks (`ONLY=<n> npm test` runs a single one):
 
 1. Kairo appears (multi-part model, about 1.88 m tall, all joints present)
 2. Sword parented to the hand at a constant distance; during a cut the tip sweeps in front and the edge leads the swing
@@ -168,7 +168,8 @@ npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwr
 13. FX pools stay bounded, the scene-graph object count is unchanged after heavy use, and a simulation step takes about 1 ms
 15. Touchscreen, driven with real touch events in a phone-sized context: the joystick moves, dragging turns the camera, holding SLASH chains Quick Draw › Crosswind › Gale Breaker, the Q button casts, the pause button pauses, and nothing scrolls sideways
 16. The soundtrack stays silent until a real click, then measurably plays and changes through title › training › boss › victory, and muffles on pause
-17. No runtime or console errors
+17. Mobile audio unlock under emulated iOS rules (audio may start only on touch-end, click or key): the first tap anywhere starts the music, the chip never claims music is on while audio is blocked, and a tap after an interruption brings it back
+18. No runtime or console errors
 
 Screenshots from each test go to `tests/output/`.
 
