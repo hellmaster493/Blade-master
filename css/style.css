@@ -402,6 +402,20 @@ html, body {
 .ebar .fill { height: 100%; background: linear-gradient(90deg, #8a2be2, #e05aff); }
 .ebar.locked { border-color: var(--crimson); box-shadow: 0 0 6px var(--crimson); }
 .ebar.winding { border-color: #ff9a3a; }
+.ebar.npc { width: 70px; height: 5px; border-color: rgba(255, 255, 255, 0.3); }
+.ebar.npc .fill { background: var(--clan); box-shadow: 0 0 6px var(--clan); }
+.ebar.npc.guarding { border-color: #fff; }
+.ebar.npc.down .fill { opacity: 0; }
+.ebar .ename { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font-family: var(--display); font-style: italic; font-size: 10px; letter-spacing: 0.1em; color: var(--clan); text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, 0.8); white-space: nowrap; }
+.ebar.down .ename { opacity: 0.5; }
+.speech { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); max-width: 190px; width: max-content; padding: 5px 9px; background: rgba(250, 250, 255, 0.94); color: #11131c; font-family: var(--ui); font-size: 12px; font-weight: 700; line-height: 1.25; text-align: center; border-radius: 10px; border: 2px solid var(--clan); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); animation: speechpop 0.18s ease-out; }
+.speech::after { content: ''; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--clan); }
+@keyframes speechpop { from { transform: translateX(-50%) scale(0.6); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+.dmg.npc, .dmg.npc.heavy { font-size: 14px; color: #c8cede; opacity: 0.8; text-shadow: 0 1px 2px #000; }
+.dmg.npc.heavy { font-size: 17px; }
+.dmg.label { font-size: 13px; letter-spacing: 0.12em; color: #fff4c8; text-shadow: 0 0 6px #ffb040, 0 1px 2px #000; }
+.msg.count-msg { font-size: clamp(40px, 7vw, 96px); color: #fff; text-shadow: 0 0 24px var(--crimson), 0 4px 8px #000; }
+.msg.fight-msg { font-size: clamp(44px, 8vw, 110px); color: #fff0f2; letter-spacing: 0.2em; text-shadow: 0 0 30px var(--crimson), 0 0 8px #fff, 0 4px 8px #000; }
 
 .dmg {
   position: absolute;

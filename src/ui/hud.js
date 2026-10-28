@@ -164,7 +164,7 @@ export class HUD {
     this.lastMilestone = 0;
   }
 
-  damageNumber(pos, amount, { crimson = false, heavy = false, player = false, gear = 1, small = false } = {}) {
+  damageNumber(pos, amount, { crimson = false, heavy = false, player = false, gear = 1, small = false, npc = false, label = null } = {}) {
     let n = this.numbers.find((x) => !x.active);
     if (!n) n = this.numbers.reduce((a, b) => (a.life < b.life ? a : b));
     n.active = true;
@@ -172,8 +172,8 @@ export class HUD {
     n.pos.y += 0.3;
     n.life = n.max = heavy ? 1.0 : 0.8;
     n.vx = (Math.random() - 0.5) * 40;
-    n.el.textContent = Math.round(amount);
-    n.el.className = 'dmg' + (crimson ? ' crimson' : '') + (heavy ? ' heavy' : '') + (player ? ' player' : '') + (gear >= 3 ? ' g' + gear : '') + (small ? ' aura' : '');
+    n.el.textContent = label || Math.round(amount);
+    n.el.className = 'dmg' + (crimson ? ' crimson' : '') + (heavy ? ' heavy' : '') + (player ? ' player' : '') + (gear >= 3 && !npc ? ' g' + gear : '') + (small ? ' aura' : '') + (npc ? ' npc' : '') + (label ? ' label' : '');
     n.el.style.display = 'block';
   }
 
@@ -275,7 +275,10 @@ export class HUD {
 
     // wave panel
     const d = g.director;
-    if (g.mode === 'training') {
+    if (g.mode === 'brawl') {
+      this.wavePanel.querySelector('.wave-name').textContent = 'CLAN BRAWL';
+      this.wavePanel.querySelector('.wave-sub').textContent = d.state === 'brawlIntro' ? 'THE CLANS SIZE EACH OTHER UP...' : `FIGHTERS LEFT: ${d.fightersLeft} · YOUR KOs: ${d.playerKos}`;
+    } else if (g.mode === 'training') {
       this.wavePanel.querySelector('.wave-name').textContent = 'TRAINING GROUNDS';
       this.wavePanel.querySelector('.wave-sub').textContent = touch
         ? `Dummies attack: ${g.trainingAggro ? 'ON' : 'OFF'} (change in pause menu)`
@@ -312,10 +315,15 @@ export class HUD {
       seen.add(e.id);
       let bar = this.enemyBars.get(e.id);
       if (!bar) {
-        bar = el('div', 'ebar', this.barLayer, '<div class="fill"></div>');
+        bar = el('div', 'ebar' + (e.isNpc ? ' npc' : ''), this.barLayer, '<div class="fill"></div>');
+        if (e.isNpc) {
+          bar.style.setProperty('--clan', e.clan.css);
+          bar.nameEl = el('span', 'ename', bar, e.name);
+          bar.speechEl = el('div', 'speech hidden', bar);
+        }
         this.enemyBars.set(e.id, bar);
       }
-      const visible = !e.isDefeated() && e.state !== 'spawn';
+      const visible = e.isNpc ? !(e.isDefeated() && !e.speech) : !e.isDefeated() && e.state !== 'spawn';
       const p = visible ? this.project(e.anchor(_v), camera, w, h) : null;
       if (!p) {
         bar.style.display = 'none';
@@ -323,9 +331,20 @@ export class HUD {
       }
       bar.style.display = 'block';
       bar.style.transform = `translate(${p[0]}px, ${p[1]}px) translate(-50%, -50%)`;
+      if (e.isNpc) {
+        bar.classList.toggle('down', e.isDefeated());
+        bar.classList.toggle('guarding', e.state === 'guard');
+        const sp = e.speech;
+        if (sp && Math.hypot(e.position.x - k.position.x, e.position.z - k.position.z) < 30) {
+          if (bar.speechEl.textContent !== sp.text) bar.speechEl.textContent = sp.text;
+          bar.speechEl.classList.remove('hidden');
+        } else if (!bar.speechEl.classList.contains('hidden')) {
+          bar.speechEl.classList.add('hidden');
+        }
+      }
       bar.firstChild.style.width = ((e.hp / e.maxHp) * 100).toFixed(1) + '%';
       bar.classList.toggle('locked', e === lt);
-      bar.classList.toggle('winding', e.state === 'windup');
+      bar.classList.toggle('winding', e.state === 'windup' || (e.isNpc && e.atk && e.atk.phase === 'chamber'));
     }
     for (const [id, bar] of this.enemyBars) {
       if (!seen.has(id)) {

@@ -4,8 +4,12 @@ import * as THREE from 'three';
 import { RiftGhoul } from './riftGhoul.js';
 import { ShadeCaster } from './shadeCaster.js';
 import { RiftWarden } from './boss.js';
+import { Fighter } from '../npcs/fighter.js';
+import { CLANS, LINES, pickLine } from '../npcs/clans.js';
 import { COLORS } from '../fx/fx.js';
 import { rand } from '../core/mathutils.js';
+
+const BRAWL_INTRO = 5.2; // seconds of standoff before the gong
 
 export const WAVES = [
   { name: 'WAVE 1', title: 'The Rift Opens', spawns: [['ghoul', 3]], tokens: 2 },
@@ -35,6 +39,13 @@ export class WaveDirector {
     this.boss = null;
     this.slots = [];
     this.kills = 0;
+    this.playerKos = 0;
+    this.fighters = [];
+    this.brawlSize = 3; // fighters per clan
+    this.script = [];
+    this.lastStand = false;
+    this.nextSpeechAt = 0; // one voice at a time, so bubbles stay readable
+    game.events.on('fighterDown', (e) => this.onFighterDown(e));
   }
 
   reset() {
@@ -50,6 +61,10 @@ export class WaveDirector {
     this.wave = -1;
     this.slots = [];
     this.kills = 0;
+    this.playerKos = 0;
+    this.fighters = [];
+    this.script = [];
+    this.lastStand = false;
   }
 
   start(mode) {
@@ -58,6 +73,11 @@ export class WaveDirector {
     if (mode === 'training') {
       this.state = 'training';
       this.slots = TRAINING_SLOTS.map(([x, z]) => ({ x, z, enemy: null, respawn: 0.3 }));
+    } else if (mode === 'brawl') {
+      this.state = 'brawlIntro';
+      this.timer = BRAWL_INTRO;
+      this.maxTokens = 3;
+      this.spawnBrawl();
     } else {
       this.state = 'intro';
       this.timer = 1.4;
@@ -161,6 +181,7 @@ export class WaveDirector {
     }
     for (const e of this.enemies) e.update(dt);
     this.separate();
+    if (this.state === 'brawlIntro' || this.state === 'brawl') this.updateBrawl(dt);
     // corpse cleanup
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
@@ -201,6 +222,97 @@ export class WaveDirector {
         }
       }
     }
+  }
+
+  // ------------------------------------------------------------------ clan brawl
+  /** Three clans gather in groups around Kairo, trade words, then fight everyone. */
+  spawnBrawl() {
+    const g = this.game;
+    // ahead and to either side of Kairo, so the camera sees every clan gather
+    const homes = [0, 1.35, -1.35];
+    CLANS.forEach((clan, ci) => {
+      const a = homes[ci];
+      const cx = Math.sin(a) * 11;
+      const cz = Math.cos(a) * 11 - 3;
+      clan.members.slice(0, this.brawlSize).forEach((member, mi) => {
+        const f = new Fighter(g, clan, member);
+        const off = (mi - (this.brawlSize - 1) / 2) * 1.7;
+        f.position.set(cx + Math.cos(a) * off, 0, cz - Math.sin(a) * off);
+        f.facing = Math.atan2(-f.position.x, -3 - f.position.z) + rand(-0.25, 0.25);
+        f.object.rotation.y = f.facing;
+        g.scene.add(f.object);
+        g.combat.register(f);
+        this.enemies.push(f);
+        this.fighters.push(f);
+      });
+    });
+    // the standoff: each clan speaks up, someone notices Kairo
+    const leaders = CLANS.map((c) => this.fighters.find((f) => f.clan === c));
+    this.script = [
+      [BRAWL_INTRO - 0.4, leaders[0], pickLine(CLANS[0].lines.greet)],
+      [BRAWL_INTRO - 1.5, leaders[1], pickLine(CLANS[1].lines.greet)],
+      [BRAWL_INTRO - 2.6, leaders[2], pickLine(CLANS[2].lines.greet)],
+      [BRAWL_INTRO - 3.6, this.fighters[(Math.random() * this.fighters.length) | 0], pickLine(LINES.kairo)],
+    ];
+  }
+
+  updateBrawl(dt) {
+    const g = this.game;
+    if (this.state === 'brawlIntro') {
+      const before = this.timer;
+      this.timer -= dt;
+      for (const s of this.script) {
+        if (before > s[0] && this.timer <= s[0] && s[1]) {
+          s[1].say(s[2], 1.7, true);
+          for (const f of this.fighters) if (f !== s[1]) f.lookTarget = s[1];
+        }
+      }
+      for (const n of [3, 2, 1]) if (before > n && this.timer <= n) g.events.emit('brawlCount', n);
+      if (this.timer <= 0) {
+        this.state = 'brawl';
+        for (const f of this.fighters) f.live = true;
+        g.events.emit('brawlStart', {});
+      }
+    } else if (this.state === 'brawl') {
+      const alive = this.fighters.filter((f) => !f.isDefeated());
+      if (!alive.length && !g.player.isDefeated()) {
+        this.state = 'victory';
+        g.events.emit('victory', {});
+        return;
+      }
+      // when one clan is all that is left, they square up to Kairo
+      if (!this.lastStand && alive.length && alive.every((f) => f.team === alive[0].team)) {
+        this.lastStand = true;
+        alive[0].say(pickLine(LINES.last), 2, true);
+        for (const f of alive) f.target = g.player;
+        g.events.emit('lastClan', { clan: alive[0].clan });
+      }
+    }
+  }
+
+  onFighterDown({ fighter, by }) {
+    if (by === this.game.player) this.playerKos++;
+    // a clan-mate reacts to the loss
+    const near = this.fighters
+      .filter((f) => f !== fighter && f.team === fighter.team && !f.isDefeated())
+      .sort((a, b) => a.position.distanceTo(fighter.position) - b.position.distanceTo(fighter.position))[0];
+    if (near) {
+      near.say(pickLine(LINES.allyDown, { name: fighter.name }), 1.6, true);
+      if (by && !by.isDefeated()) {
+        near.grudge.set(by, (near.grudge.get(by) || 0) + 120);
+        near.retargetT = 0;
+      }
+    }
+    // whoever is close and saw Kairo's Gear aura lose their nerve
+    const k = this.game.player;
+    if (by === k && k.gear >= 3) {
+      const watcher = this.fighters.find((f) => !f.isDefeated() && f !== near && f.position.distanceTo(k.position) < 12);
+      if (watcher) watcher.say(pickLine(LINES.power), 1.6, true);
+    }
+  }
+
+  get fightersLeft() {
+    return this.fighters.filter((f) => !f.isDefeated()).length;
   }
 
   bossPoint() {

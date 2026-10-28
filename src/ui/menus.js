@@ -168,13 +168,16 @@ export class Menus {
     r.classList.toggle('victory', victory);
     r.classList.toggle('defeat', !victory);
     r.querySelector('.res-title').textContent = victory ? 'VICTORY' : 'DEFEATED';
-    r.querySelector('.res-sub').textContent = victory ? 'The Rift is sealed. Kurokaze returns to its sheath.' : 'The Blade Master falls... but the Tempest will rise again.';
+    const sub = stats.brawl
+      ? victory ? 'Last one standing. Every clan has fallen.' : 'The clans proved too many... this time.'
+      : victory ? 'The Rift is sealed. Kurokaze returns to its sheath.' : 'The Blade Master falls... but the Tempest will rise again.';
+    r.querySelector('.res-sub').textContent = sub;
     const t = Math.floor(stats.time);
     r.querySelector('.res-stats').innerHTML = `
       <div><span>Time</span><b>${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}</b></div>
       <div><span>Max combo</span><b>${stats.maxCombo}</b></div>
       <div><span>Damage dealt</span><b>${Math.round(stats.damage)}</b></div>
-      <div><span>Enemies defeated</span><b>${stats.kills}</b></div>
+      <div><span>${stats.brawl ? 'Fighters you KO\'d' : 'Enemies defeated'}</span><b>${stats.brawl ? `${stats.kills} / ${stats.total}` : stats.kills}</b></div>
       <div><span>Perfect dodges</span><b>${stats.perfect}</b></div>`;
     r.classList.remove('hidden');
   }

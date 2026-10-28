@@ -14,7 +14,7 @@ npm start            # zero-dependency Node server → http://localhost:8080
 # or any static server, e.g. python3 -m http.server 8080
 ```
 
-You need a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari). Pick **Rift Assault** (three waves and a boss) or **Training Grounds** (respawning dummies and an ultimate that charges itself). Click the arena to capture the mouse.
+You need a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari). Pick an arena on the title screen, then a mode: **Rift Assault** (three waves and a boss), **Clan Brawl** (three rival clans of human swordfighters fight each other and you) or **Training Grounds** (respawning dummies and an ultimate that charges itself). Click the arena to capture the mouse.
 
 ## Controls
 
@@ -119,6 +119,43 @@ The **gear gauge** sits under the ultimate bar. It has three segments (300 point
 - The gauge pauses during the awakening and the Crimson Tempest cinematic. When it empties, Kairo returns to Gear 1. Pressing G at Gear 4 releases early, and the floating rocks crash back down.
 - Gears end on defeat or victory. Restarting resets the gauge.
 
+## Arenas
+
+Choose the arena under **Choose your arena** on the title screen. The 3D background swaps live so you can preview it, and the choice is remembered. Every arena has the same fighting circle and boundary, so moves and enemies behave the same everywhere, but each has its own sky, ground, props, lighting, fog and weather.
+
+| Arena | Setting | Weather |
+|---|---|---|
+| **Rift Sanctum** | The original: floating stone ruins with rune pillars and braziers under a torn night sky | Rift motes drifting up |
+| **Sakura Shrine** | Moonlit shrine courtyard at dusk: raked gravel, stone lanterns, vermilion torii gates, cherry trees, a shrine hall and pagoda under a huge moon | Falling cherry petals |
+| **Neon Skyline** | Wet rooftop helipad with neon floor strips, AC units, a water tank and antenna, holo billboards, a city of lit towers far below and flying traffic | Rain |
+| **Frozen Peak** | Snowbound summit with a frozen pond, glowing ice-crystal clusters, snowy pines and peaks under the aurora | Snowfall |
+| **Inferno Caldera** | Basalt island with glowing magma cracks in a lava lake, obsidian spikes, rock spires and a smoking volcano | Rising embers and ash |
+
+Props are solid: you, enemies and NPCs collide with them. Tall ones also keep the camera out. Switching arenas frees the old one's geometry, materials and textures.
+
+## Clan Brawl
+
+Three rival clans of human swordfighters meet in the arena, three fighters each. You're a stranger caught in the middle. Win by being the last one standing.
+
+| Clan | Style |
+|---|---|
+| **Crimson Ronin** (red) | Aggressive. Long combos and heavy finishers, quick to come back for more |
+| **Azure Guard** (blue) | Disciplined. Tough, patient, blocks often and counter-attacks after a good block |
+| **Shadow Vipers** (green) | Fast and fragile. Sidesteps a lot and darts in and out |
+
+Each fighter has a name, their own look and a personality: how brave they are, how fast they react, how keen they are to fight you, and how much they talk.
+
+**They act like people:**
+- **Before the fight:** the clans gather in groups, bow, shift their weight, look around and trade words. Then comes a 3-2-1 countdown and a gong.
+- **Picking fights:** they mostly fight the other clans. They pick opponents by distance, but also chase whoever hurt them, gang up on the wounded, and help clan-mates in trouble. You're a stranger until you get involved, and once you hit someone they'll come for you.
+- **Swordplay:** they circle and keep spacing, step in and out, and sometimes feint. They use Kairo's swing animations at human speed, with a readable wind-up and a glint on the blade.
+- **Defence:** they read incoming attacks and react a beat late, like a person. They raise their guard (blocks clang and chip only a little damage, until the guard breaks), or sidestep and back-step with a few i-frames.
+- **Getting hit:** they flinch, get knocked flat by heavy blows and get back up. Badly hurt fighters fall back and call for help.
+- **Wins and losses:** they cheer and taunt after a KO, react when a clan-mate goes down, and get scared of your Gear aura. KO'd fighters stay down for a while, then fade.
+- **Talking:** speech bubbles show their lines, one voice at a time so they stay readable. Names and health bars are in clan colours.
+
+When only one clan is left, they turn on you together. Clan-on-clan blows are softened so the brawl lasts long enough for you to join in. Phones get two fighters per clan.
+
 ## Enemies
 
 - **Rift Ghoul**: melee. Telegraphed claw swipe and leaping pounce. Staggers on every hit.
@@ -148,9 +185,11 @@ src/characters/kairo/
   kairoUltimate.js             Crimson Tempest stage machine
   kairo.js                     controller: states, movement, buffering, hits, dash, perfect dodge, Gears
   gearVisuals.js               per-Gear flame aura, ground sigil, aura light, lightning, floating rocks, recolours, burst
-src/enemies/                   enemy base, ghoul, caster, boss, projectiles, wave director
+src/enemies/                   enemy base, ghoul, caster, boss, projectiles, wave/brawl director
+src/npcs/                      human clan fighters: model (Kairo's skeleton, own outfits), AI controller, clans and lines
 src/fx/                        pooled particles, debris, sword trail, slash arcs, rings, telegraphs, flashes, afterimages
-src/world/                     arena, camera rig, cel-shading/outline materials, canvas textures
+src/world/                     arena host, camera rig, cel-shading/outline materials, canvas textures
+src/world/maps/                the five arenas plus shared sky, barrier, weather and prop helpers
 src/ui/                        HUD, menus, touch controls, screen effects, original SVG icons/portrait
 tests/e2e.mjs                  automated browser tests (npm test)
 dev/poses.html, dev/viewer.html  pose/model inspection pages for development
@@ -171,7 +210,7 @@ dev/poses.html, dev/viewer.html  pose/model inspection pages for development
 npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwright install chromium
 ```
 
-`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **18/18** checks (`ONLY=<n> npm test` runs a single one):
+`tests/e2e.mjs` starts the server, opens the real game in headless Chromium and steps it deterministically through `window.__RIFT__`. Input goes through the same `Input` class the keyboard and mouse use. The last run passed **20/20** checks (`ONLY=<n> npm test` runs a single one):
 
 1. Kairo appears (multi-part model, about 1.88 m tall, all joints present)
 2. Sword parented to the hand at a constant distance; during a cut the tip sweeps in front and the edge leads the swing
@@ -190,7 +229,9 @@ npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwr
 15. Touchscreen, driven with real touch events in a phone-sized context: the joystick moves, dragging turns the camera, holding SLASH chains Quick Draw › Crosswind › Gale Breaker, the Q button casts, the pause button pauses, and nothing scrolls sideways
 16. The soundtrack stays silent until a real click, then measurably plays and changes through title › training › boss › victory, and muffles on pause
 17. Mobile audio unlock under emulated iOS rules (audio may start only on touch-end, click or key): the first tap anywhere starts the music, the chip never claims music is on while audio is blocked, and a tap after an interruption brings it back
-18. No runtime or console errors
+18. Maps: the title picker switches the live arena and saves the choice. Every map plays (running, a prop that stops you, a landed hit), and revisiting maps leaves the scene-object, geometry and texture counts unchanged
+19. Clan Brawl: nine fighters in three clans talk during the standoff without swinging, then a 3-2-1 countdown. Over 40 s they fight each other with blocks, dodges, flinches, knockdowns and KOs, and say many different lines. Kairo KOs one, a guarding fighter blocks his swing, and finishing the rest wins the brawl with the right results screen. Nothing is left in the scene afterwards
+20. No runtime or console errors
 
 Screenshots from each test go to `tests/output/`.
 
@@ -199,7 +240,7 @@ Screenshots from each test go to `tests/output/`.
 - The character is built from layered low-poly primitives with cel shading and outlines, not a sculpted, rigged model. Animation is procedural (IK and keyed poses) rather than motion-captured.
 - Kurokaze is held one-handed. There's no IK for a two-handed grip.
 - Feet are phase-locked when running, but dashes and attack lunges still slide a little.
-- Real-GPU frame rate hasn't been measured: the test environment renders with a software GPU (SwiftShader). Draw calls are about 490 in the boss wave and about 640 at the busiest point of the ultimate. If performance is a problem, turn off **Bloom** in Settings.
+- Real-GPU frame rate hasn't been measured: the test environment renders with a software GPU (SwiftShader). Draw calls are about 490 in the boss wave, about 640 at the busiest point of the ultimate, and about 850 in a full Clan Brawl (NPCs use merged meshes, blob shadows and distance-culled outlines). If performance is a problem, turn off **Bloom** in Settings.
 - Audio and music are synthesized live (WebAudio). They're distinct per action and per game stage, but they aren't studio-produced tracks.
 - Touch controls have only been tested in an emulated phone (Chromium mobile emulation with real touch events), not on a physical device. There's no gamepad support.
 

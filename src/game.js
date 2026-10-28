@@ -165,8 +165,21 @@ export class Game {
       if (target === this.player) return;
       const pos = hit.point || target.anchor(new THREE.Vector3());
       const gear = attacker === this.player ? this.player.gear : 1;
-      this.hud.damageNumber(pos, result.damage, { crimson: hit.crimson, heavy: hit.kind === 'heavy', gear, small: !!hit.aura });
+      this.hud.damageNumber(pos, result.damage, {
+        crimson: hit.crimson, heavy: hit.kind === 'heavy', gear, small: !!hit.aura,
+        npc: attacker !== this.player, label: result.blocked ? 'BLOCK' : null,
+      });
     });
+    ev.on('brawlCount', (n) => {
+      this.hud.message(String(n), 'count-msg', 0.9);
+      this.audio.play('ui');
+    });
+    ev.on('brawlStart', () => {
+      this.hud.message('FIGHT!', 'fight-msg', 1.4);
+      this.audio.play('gong');
+      this.shake(0.2);
+    });
+    ev.on('lastClan', ({ clan }) => this.hud.message(`${clan.name} REMAIN`, 'small-msg', 1.8));
     ev.on('kill', ({ attacker, target }) => {
       if (attacker === this.player) this.player.addGauge(GEAR_GAUGE.perKill);
       if (target !== this.player) this.director.kills++;
@@ -437,9 +450,11 @@ export class Game {
     this.input.enabled = true;
     this.input.clear();
     this.input.requestPointerLock();
+    this.director.brawlSize = TOUCH_DEVICE ? 2 : 3; // phones get a smaller crowd
     this.director.start(mode);
     const mapName = this.arena.map.name;
     if (mode === 'training') this.hud.showBanner('TRAINING GROUNDS', mapName);
+    else if (mode === 'brawl') this.hud.showBanner('CLAN BRAWL', `Last one standing · ${mapName}`);
     else this.hud.message(mapName, 'map-msg', 2.2);
     this.music.setMuffled(false);
     this.music.duck(false);
@@ -507,8 +522,10 @@ export class Game {
     this.input.enabled = false;
     this.input.exitPointerLock();
     const p = this.player;
+    const brawl = this.mode === 'brawl';
     this.menus.showResults(victory, {
-      time: this.matchTime, maxCombo: p.maxCombo, damage: p.damageDealt, kills: this.director.kills, perfect: p.perfectDodges,
+      time: this.matchTime, maxCombo: p.maxCombo, damage: p.damageDealt, perfect: p.perfectDodges, brawl,
+      kills: brawl ? this.director.playerKos : this.director.kills, total: this.director.fighters.length,
     });
   }
 

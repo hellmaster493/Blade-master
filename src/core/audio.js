@@ -2,7 +2,7 @@
 // The AudioContext is only created/resumed from a user gesture (unlock()) to respect autoplay rules.
 
 const MIN_INTERVAL = {
-  hit: 0.028, hitMedium: 0.035, hitHeavy: 0.05, swing: 0.03, ultCut: 0.03, enemyDefeat: 0.05, ready: 0.08, step: 0.05, zap: 0.06,
+  hit: 0.028, hitMedium: 0.035, hitHeavy: 0.05, swing: 0.03, ultCut: 0.03, enemyDefeat: 0.05, ready: 0.08, step: 0.05, zap: 0.06, block: 0.04, thud: 0.08, guardBreak: 0.1,
 };
 
 export class AudioEngine {
@@ -380,6 +380,36 @@ export class AudioEngine {
       this._noise({ t: 0.03, dur: 1.6, type: 'lowpass', f0: 1800, f1: 50, gain: 0.45, attack: 0.02 });
       this._tone({ dur: 1.6, f0: root * 4, f1: root * 4.02, gain: 0.03, attack: 0.2, type: 'sawtooth' });
     }
+  }
+
+  /** Steel on steel: a blocked swing. */
+  _block() {
+    const pan = (Math.random() - 0.5) * 0.4;
+    const f = 1900 + Math.random() * 500;
+    this._noise({ dur: 0.05, type: 'highpass', f0: 2500, f1: 1500, gain: 0.32, pan });
+    this._tone({ dur: 0.35, type: 'triangle', f0: f, f1: f * 0.98, gain: 0.08, pan });
+    this._tone({ dur: 0.28, type: 'triangle', f0: f * 1.47, f1: f * 1.43, gain: 0.05, pan });
+    this._tone({ dur: 0.1, f0: 260, f1: 110, gain: 0.18, pan });
+  }
+
+  /** A guard caving in. */
+  _guardBreak() {
+    this._noise({ dur: 0.2, type: 'bandpass', f0: 1800, f1: 400, q: 1.2, gain: 0.35 });
+    this._tone({ dur: 0.25, type: 'sawtooth', f0: 420, f1: 120, gain: 0.08 });
+  }
+
+  /** A body hitting the floor. */
+  _thud() {
+    this._noise({ dur: 0.22, type: 'lowpass', f0: 600, f1: 90, gain: 0.32 });
+    this._tone({ dur: 0.16, f0: 95, f1: 45, gain: 0.3 });
+  }
+
+  /** Temple gong that starts a brawl. */
+  _gong() {
+    for (const [f, g] of [[98, 0.22], [147.5, 0.12], [196.4, 0.08], [262, 0.05], [331, 0.03]]) {
+      this._tone({ dur: 2.6, type: 'sine', f0: f, f1: f * 0.985, gain: g, attack: 0.01 });
+    }
+    this._noise({ dur: 0.3, type: 'lowpass', f0: 900, f1: 150, gain: 0.3 });
   }
 
   /** Crackle of aura lightning. */

@@ -673,11 +673,13 @@ page.on('console', (m) => {
 
 // ONLY=4 node tests/e2e.mjs runs a single numbered check (handy while iterating)
 const only = process.env.ONLY;
+// ONLY=18,19 runs several numbered checks
+const want = (n) => !only || only.split(',').includes(String(n));
 let failed = 0;
 let ran = 0;
 const results = [];
 for (const t of tests) {
-  if (only && !t.name.startsWith(only + '.')) continue;
+  if (!want(t.name.split('.')[0])) continue;
   ran++;
   await page.goto(`http://localhost:${port}/index.html?noprewarm`);
   await page.waitForFunction('!!window.__RIFT__', null, { timeout: 30000 });
@@ -703,7 +705,7 @@ for (const t of tests) {
 
 // --------------------------------------------------------------------------- touch controls
 // A phone-sized, touch-enabled context driven with real touch events (CDP), not injected input.
-if (!only || only === '15') {
+if (want(15)) {
   ran++;
   const name = '15. Touchscreen controls: joystick, look-drag, held SLASH combo, skill buttons, pause';
   const started = Date.now();
@@ -790,7 +792,7 @@ if (!only || only === '15') {
 
 // --------------------------------------------------------------------------- music
 // The soundtrack must start from a real user gesture and follow the game's state.
-if (!only || only === '16') {
+if (want(16)) {
   ran++;
   const name = '16. Futuristic soundtrack: starts on first click, follows title › training › boss › victory, muffles on pause';
   const started = Date.now();
@@ -857,7 +859,7 @@ await page.goto('about:blank');
 // --------------------------------------------------------------------------- mobile audio unlock
 // iOS Safari only lets audio start inside touch-end/click/key handlers (not touch-down).
 // Emulate that rule so the music must survive it: first tap anywhere starts it, the chip never lies.
-if (!only || only === '17') {
+if (want(17)) {
   ran++;
   const name = '17. Mobile audio unlock under iOS gesture rules: first tap starts music, chip state is honest, interruptions recover';
   const started = Date.now();
@@ -926,7 +928,7 @@ if (!only || only === '17') {
 
 // --------------------------------------------------------------------------- maps
 // Every arena map builds, plays (movement, colliders, combat) and unloads without leaking.
-if (!only || only === '18') {
+if (want(18)) {
   ran++;
   const name = '18. Maps: the title picker switches the live arena; every map plays and unloads cleanly';
   const started = Date.now();
@@ -1005,9 +1007,165 @@ if (!only || only === '18') {
   console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
 }
 
+// --------------------------------------------------------------------------- clan brawl
+// Human NPC fighters: clans gather and talk, then fight each other (and Kairo) like people.
+if (want(19)) {
+  ran++;
+  const name = '19. Clan Brawl: human clans talk, then fight each other; they block, dodge, flinch, fall and KO; Kairo joins in and wins';
+  const started = Date.now();
+  let res;
+  // its own page: a fresh WebGL context after the map test's shader compiles
+  const bp = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  bp.on('pageerror', (e) => errors.push('[brawl] ' + e.message));
+  bp.on('console', (m) => {
+    if (m.type() === 'error') errors.push('[brawl] ' + m.text());
+  });
+  try {
+    await bp.goto(`http://localhost:${port}/index.html?noprewarm`, { timeout: 90000 });
+    await bp.waitForFunction('!!window.__RIFT__', null, { timeout: 60000 });
+    await bp.evaluate(HELPERS);
+    const r = await bp.evaluate(() => {
+      const R = T.R;
+      const g = R.game;
+      const d = g.director;
+      const k = g.player;
+      R.manual(true);
+      R.map('rift');
+      const count = () => {
+        let n = 0;
+        g.scene.traverse(() => n++);
+        return n;
+      };
+      g.startMatch('training');
+      R.clearEnemies();
+      R.step(1 / 60, 5);
+      const objects0 = count();
+      g.startMatch('brawl');
+      const ev = { count: [], start: 0, npcHits: 0, onKairo: 0, blocks: 0, dodges: 0, kos: [], lines: new Set(), states: new Set(), bubbles: 0 };
+      g.events.on('brawlCount', (n) => ev.count.push(n));
+      g.events.on('brawlStart', () => (ev.start = g.simTime));
+      g.events.on('hit', (e) => {
+        if (!e.attacker.isNpc) return;
+        if (e.target.isNpc) ev.npcHits++;
+        if (e.target === k) ev.onKairo++;
+        if (e.result.blocked) ev.blocks++;
+      });
+      g.events.on('dodged', (e) => {
+        if (e.target.isNpc) ev.dodges++;
+      });
+      g.events.on('fighterDown', (e) => ev.kos.push([e.fighter.team, e.by && e.by.team]));
+      const out = { fighters: d.fighters.length, clans: new Set(d.fighters.map((f) => f.team)).size };
+      const watch = () => {
+        for (const f of d.fighters) {
+          ev.states.add(f.state);
+          if (f.speech && f.speech.t === 0) ev.lines.add(f.speech.text);
+        }
+        ev.bubbles = Math.max(ev.bubbles, document.querySelectorAll('.speech:not(.hidden)').length);
+      };
+      // the standoff: they talk and look around, nobody swings
+      let introSwings = 0;
+      for (let i = 0; i < 60 * 4.8; i++) {
+        R.step(1 / 60, 1);
+        watch();
+        for (const f of d.fighters) if (f.atk) introSwings++;
+      }
+      out.introLines = ev.lines.size;
+      out.introSwings = introSwings;
+      out.stillIntro = d.state === 'brawlIntro';
+      // the brawl: Kairo stays out of it (and alive) while the clans go at each other
+      for (let i = 0; i < 60 * 40; i++) {
+        k.invulnT = 1;
+        k.position.set(0, 0, -24);
+        R.step(1 / 60, 1);
+        watch();
+      }
+      out.live = d.state;
+      // Kairo knocks one out himself
+      const victim = d.fighters.find((f) => !f.isDefeated());
+      k.invulnT = 0;
+      k.position.set(0, 0, 0);
+      k.facing = 0;
+      g.cameraRig.yaw = 0;
+      victim.hp = 15;
+      victim.setState('engage');
+      victim.atk = null;
+      victim.position.set(0, 0, 1.6);
+      victim.velocity.set(0, 0, 0);
+      R.tap('Mouse0');
+      T.run(0.45);
+      out.kairoKo = victim.isDefeated();
+      out.playerKos = d.playerKos;
+      // a fighter with their guard up blocks his swing
+      const blocker = d.fighters.find((f) => !f.isDefeated());
+      if (blocker) {
+        T.run(0.6);
+        k.position.set(0, 0, 0);
+        k.facing = 0;
+        blocker.hp = blocker.maxHp;
+        blocker.guardMeter = 100;
+        blocker.position.set(0, 0, 1.6);
+        blocker.facing = Math.PI;
+        blocker.atk = null;
+        blocker.setState('guard');
+        blocker.guardT = 3;
+        const hp0 = blocker.hp;
+        const b0 = ev.blocks;
+        let blocked = false;
+        const off = g.events.on('hit', (e) => {
+          if (e.target === blocker && e.result.blocked) blocked = true;
+        });
+        R.tap('Mouse0');
+        T.run(0.4);
+        if (typeof off === 'function') off();
+        out.blocked = blocked;
+        out.blockChip = hp0 - blocker.hp;
+        out.blocksSeen = ev.blocks - b0;
+      }
+      // finish the rest, then the match is won
+      for (const f of d.fighters) if (!f.isDefeated()) g.combat.applyHit(k, f, { damage: 9999, kind: 'light', source: k, dir: new R.THREE.Vector3(0, 0, 1) }, null);
+      T.run(1);
+      out.end = d.state;
+      out.matchOver = g.matchOver;
+      out.npcHits = ev.npcHits;
+      out.onKairo = ev.onKairo;
+      out.blocks = ev.blocks;
+      out.dodges = ev.dodges;
+      out.kos = ev.kos.length;
+      out.npcKos = ev.kos.filter(([v, by]) => by && by.startsWith('clan:') && by !== v).length;
+      out.lines = ev.lines.size;
+      out.bubbles = ev.bubbles;
+      out.states = [...ev.states].sort().join(',');
+      out.count = ev.count.join('');
+      T.run(4);
+      out.results = document.querySelector('#results .res-sub').textContent;
+      out.resultsKos = document.querySelector('#results .res-stats').textContent.includes("Fighters you KO'd");
+      g.quitToTitle();
+      g.startMatch('training');
+      R.clearEnemies();
+      R.step(1 / 60, 5);
+      out.cleanObjects = count() === objects0;
+      return out;
+    });
+    const need = ['attack', 'engage', 'guard', 'dodge', 'hurt', 'down', 'ko', 'taunt'];
+    const ok = r.fighters === 9 && r.clans === 3 && r.stillIntro && r.introSwings === 0 && r.introLines >= 3 && r.count === '321'
+      && r.npcHits > 20 && r.blocks > 0 && r.dodges > 0 && r.npcKos >= 1 && need.every((s) => r.states.split(',').includes(s))
+      && r.lines >= 8 && r.bubbles >= 1 && r.kairoKo && r.playerKos >= 1 && r.blocked && r.blockChip < 10
+      && r.end === 'victory' && r.matchOver && /Every clan has fallen/.test(r.results) && r.resultsKos && r.cleanObjects;
+    res = {
+      ok,
+      info: `${r.fighters} fighters in ${r.clans} clans; standoff: ${r.introLines} lines, ${r.introSwings} swings, countdown ${r.count}; 40 s of brawl: ${r.npcHits} clan-on-clan hits, ${r.blocks} blocks, ${r.dodges} dodges, ${r.npcKos} KOs between clans, ${r.onKairo} hits on Kairo, ${r.lines} different lines (${r.bubbles} bubbles at once), states ${r.states}; Kairo KO'd one (${r.playerKos}), blocked swing chip ${r.blockChip}, end ${r.end}; results '${r.results}'; clean=${r.cleanObjects}`,
+    };
+  } catch (e) {
+    res = { ok: false, info: 'threw: ' + e.message };
+  }
+  await bp.close();
+  if (!res.ok) failed++;
+  console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
+}
+
 const errOk = errors.length === 0;
 ran++;
-console.log(`${errOk ? 'PASS' : 'FAIL'}  19. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
+console.log(`${errOk ? 'PASS' : 'FAIL'}  20. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
 if (!errOk) failed++;
 console.log(`\n${ran - failed}/${ran} checks passed. Screenshots: ${path.relative(process.cwd(), OUT)}/`);
 await browser.close();

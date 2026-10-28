@@ -60,7 +60,7 @@ function makeMaterials() {
 
 // ---------------------------------------------------------------------------
 
-class Builder {
+export class Builder {
   constructor(ghostMaterial) {
     this.ghost = ghostMaterial || null;
     this.joints = new Map();
@@ -100,12 +100,12 @@ class Builder {
   }
 }
 
-function cyl(rt, rb, h, seg = 12, open = false, ts = 0, tl = Math.PI * 2) {
+export function cyl(rt, rb, h, seg = 12, open = false, ts = 0, tl = Math.PI * 2) {
   return new THREE.CylinderGeometry(rt, rb, h, seg, 1, open, ts, tl);
 }
 
 /** A cone whose base sits at the origin and tip points along `dir`. */
-function spikeGeo(radius, length, dir, seg = 4) {
+export function spikeGeo(radius, length, dir, seg = 4) {
   const g = new THREE.ConeGeometry(radius, length, seg, 1);
   g.translate(0, length / 2, 0);
   const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
@@ -301,7 +301,7 @@ export function buildSword(b, mats) {
 // ---------------------------------------------------------------------------
 
 /** Sphere sculpted into an anime head: rounded cranium, tapered V-jaw and a soft pointed chin. */
-function headGeometry(r) {
+export function headGeometry(r) {
   const g = new THREE.SphereGeometry(r, 28, 22);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
@@ -407,7 +407,7 @@ function buildHead(b, head, m) {
   b.part(tail, spikeGeo(0.028, 0.22, new THREE.Vector3(-0.25, -1, -0.1)), m.hair, { p: [-0.008, -0.015, 0], outline: 0.005 });
 }
 
-function buildArm(b, chest, side, m) {
+export function buildArm(b, chest, side, m) {
   // side: -1 = right arm (on -X), +1 = left arm
   const s = side > 0 ? 'L' : 'R';
   const shoulder = b.joint('shoulder' + s, chest, side * 0.205, 0.2, -0.01);
@@ -432,7 +432,7 @@ function buildArm(b, chest, side, m) {
   return { shoulder, elbow, hand };
 }
 
-function buildLeg(b, hips, side, m) {
+export function buildLeg(b, hips, side, m) {
   const s = side > 0 ? 'L' : 'R';
   const thigh = b.joint('thigh' + s, hips, side * 0.092, -0.07, 0);
   b.part(thigh, cyl(0.084, 0.062, DIMS.thigh, 10), m.trousers, { p: [0, -DIMS.thigh / 2, 0] });
@@ -447,7 +447,7 @@ function buildLeg(b, hips, side, m) {
   return { thigh, knee, foot };
 }
 
-function coatPanel(b, hips, name, yaw, radius, width, length, m) {
+export function coatPanel(b, hips, name, yaw, radius, width, length, m) {
   const j = b.joint(name, hips, Math.sin(yaw) * radius, 0.07, Math.cos(yaw) * radius);
   j.rotation.set(-0.1, yaw, 0);
   j.userData.outward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
