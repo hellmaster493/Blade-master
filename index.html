@@ -30,6 +30,9 @@
 
     <!-- Title / character select -->
     <section id="title-screen" class="screen">
+      <button type="button" class="music-chip" data-action="music" aria-label="Toggle music">
+        <span class="mc-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="mc-text">Tap to start music</span>
+      </button>
       <div class="title-wrap">
         <header class="logo">
           <div class="logo-icon"></div>
@@ -64,7 +67,7 @@
           <button data-action="controls">Controls</button>
           <button data-action="settings">Settings</button>
         </div>
-        <p class="title-note">Pick a mode to start · audio begins on your first click · click the arena to capture the mouse</p>
+        <p class="title-note">Pick a mode to start · music and sound begin on your first click · click the arena to capture the mouse</p>
         <p class="touch-note"><b>Touch controls:</b> left thumb moves · drag the right side to look · hold SLASH to combo. Landscape works best.</p>
       </div>
     </section>
@@ -85,6 +88,8 @@
       <div class="panel">
         <h3>SETTINGS</h3>
         <label class="range">Master volume <input type="range" id="set-volume" min="0" max="100" /><span id="lbl-volume"></span></label>
+        <label class="range">Music volume <input type="range" id="set-music" min="0" max="100" /><span id="lbl-music"></span></label>
+        <label class="check"><input type="checkbox" id="set-music-on" /> Play the soundtrack</label>
         <label class="check"><input type="checkbox" id="set-mute" /> Mute all sound (M)</label>
         <label class="range">Mouse sensitivity <input type="range" id="set-sens" min="25" max="300" /><span id="lbl-sens"></span></label>
         <label class="range">Screen shake <input type="range" id="set-shake" min="0" max="100" /><span id="lbl-shake"></span></label>
@@ -108,7 +113,7 @@
           <tr><td>F / Tab</td><td>Lock on to nearest enemy / cycle targets</td></tr>
           <tr><td>Arrow keys</td><td>Rotate camera (keyboard)</td></tr>
           <tr><td>T</td><td>Training: toggle dummy attacks</td></tr>
-          <tr><td>M</td><td>Mute</td></tr>
+          <tr><td>M</td><td>Mute all sound (music volume is in Settings)</td></tr>
           <tr><td>Esc</td><td>Pause</td></tr>
           <tr class="touch-row"><td>Touch: left thumb</td><td>Floating joystick — push further to run</td></tr>
           <tr class="touch-row"><td>Touch: drag right side</td><td>Rotate the camera</td></tr>

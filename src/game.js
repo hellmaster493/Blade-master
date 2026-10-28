@@ -9,6 +9,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Emitter } from './core/events.js';
 import { Input } from './core/input.js';
 import { AudioEngine } from './core/audio.js';
+import { Music } from './core/music.js';
 import { CombatSystem } from './combat/combat.js';
 import { Arena } from './world/arena.js';
 import { CameraRig } from './world/cameraRig.js';
@@ -28,7 +29,7 @@ import { KAIRO, LOCK_ON_RANGE } from './config.js';
 import { clamp } from './core/mathutils.js';
 
 const SETTINGS_KEY = 'rift-arena-settings-v1';
-const DEFAULT_SETTINGS = { volume: 0.7, muted: false, sensitivity: 1, shake: 1, bloom: true };
+const DEFAULT_SETTINGS = { volume: 0.7, muted: false, music: 0.6, musicOn: true, sensitivity: 1, shake: 1, bloom: true };
 const MAX_STEP = 1 / 60;
 const MAX_SUBSTEPS = 6;
 
@@ -87,6 +88,8 @@ export class Game {
     this.events = new Emitter();
     this.input = new Input();
     this.audio = new AudioEngine();
+    this.music = new Music(this.audio);
+    this.audioUnlockedAt = -1;
     this.combat = new CombatSystem(this.events);
     this.arena = new Arena(this.scene);
     if (TOUCH_DEVICE) this.arena.sun.shadow.mapSize.set(1024, 1024);
@@ -110,6 +113,7 @@ export class Game {
     this.applySettings(this.settings, false);
     this.wireEvents();
     this.wireInput();
+    this.wireAudioUnlock();
 
     this.resetWorld();
     if (!new URLSearchParams(location.search).has('noprewarm')) this.prewarm();
@@ -167,6 +171,11 @@ export class Game {
     ev.on('waveStart', (w) => {
       this.hud.showBanner(w.name, w.title);
       this.audio.play(w.boss ? 'roar' : 'wave');
+      if (w.boss) this.music.setMode('boss');
+    });
+    ev.on('ultimateStage', (stage) => {
+      if (stage === 'focus') this.music.duck(true);
+      else if (stage === 'recovery' || stage === 'done') this.music.duck(false);
     });
     ev.on('waveClear', () => {
       this.hud.message('WAVE CLEAR', 'clear-msg', 1.8);
@@ -178,7 +187,49 @@ export class Game {
     ev.on('poiseBreak', (e) => {
       if (e.isBoss) this.hud.message('GUARD BREAK!', 'small-msg', 1.0);
     });
-    ev.on('bossPhase', () => this.hud.message('THE WARDEN IS ENRAGED', 'boss-msg', 1.8));
+    ev.on('bossPhase', () => {
+      this.hud.message('THE WARDEN IS ENRAGED', 'boss-msg', 1.8);
+      this.music.setMode('bossRage');
+    });
+  }
+
+  /** Browsers only allow sound after a user gesture: the first tap, click or key starts the music. */
+  wireAudioUnlock() {
+    const unlock = () => {
+      this.audio.unlock();
+      if (!this.audio.ctx) return;
+      if (this.audioUnlockedAt < 0) this.audioUnlockedAt = performance.now();
+      this.music.start(this.musicModeForState());
+      this.menus.syncMusic();
+      for (const t of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(t, unlock, true);
+    };
+    for (const t of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(t, unlock, true);
+    // a hidden tab can't keep timers running: pause the audio clock and pick up again on return
+    document.addEventListener('visibilitychange', () => {
+      const ctx = this.audio.ctx;
+      if (!ctx) return;
+      if (document.hidden) ctx.suspend();
+      else ctx.resume();
+    });
+  }
+
+  musicModeForState() {
+    if (this.state === 'title') return 'menu';
+    if (this.pendingResult || this.state === 'over') return this.player.isDefeated() ? 'defeat' : 'victory';
+    if (this.mode === 'training') return 'training';
+    const boss = this.director.boss;
+    if (boss) return boss.phase === 2 ? 'bossRage' : 'boss';
+    return 'battle';
+  }
+
+  toggleMusic() {
+    // the tap that first enables audio shouldn't also switch the music straight off
+    if (performance.now() - this.audioUnlockedAt < 500) {
+      this.applySettings({ musicOn: true });
+    } else {
+      this.applySettings({ musicOn: !this.settings.musicOn });
+    }
+    this.menus.syncMusic();
   }
 
   wireInput() {
@@ -202,6 +253,8 @@ export class Game {
     this.settings = { ...this.settings, ...s };
     this.audio.setVolume(this.settings.volume);
     this.audio.setMuted(this.settings.muted);
+    this.music.setVolume(this.settings.music);
+    this.music.setEnabled(this.settings.musicOn);
     this.cameraRig.sensitivity = this.settings.sensitivity;
     this.cameraRig.shakeScale = this.settings.shake;
     if (save) {
@@ -304,6 +357,9 @@ export class Game {
     this.input.requestPointerLock();
     this.director.start(mode);
     if (mode === 'training') this.hud.showBanner('TRAINING GROUNDS', 'Master the Blade');
+    this.music.setMuffled(false);
+    this.music.duck(false);
+    this.music.start(mode === 'training' ? 'training' : 'battle');
     this.events.emit('matchStart', { mode });
   }
 
@@ -314,6 +370,7 @@ export class Game {
     this.input.clear();
     this.input.exitPointerLock();
     this.menus.showPause();
+    this.music.setMuffled(true);
   }
 
   resume() {
@@ -324,12 +381,16 @@ export class Game {
     this.input.clear();
     this.input.requestPointerLock();
     this.last = performance.now();
+    this.music.setMuffled(false);
   }
 
   quitToTitle() {
     this.input.exitPointerLock();
     this.resetWorld();
     this.enterTitle();
+    this.music.setMuffled(false);
+    this.music.duck(false);
+    this.music.start('menu');
   }
 
   onVictory() {
@@ -340,6 +401,8 @@ export class Game {
     this.hud.message('VICTORY', 'victory-msg', 2.6);
     this.audio.play('victory');
     this.pendingResult = { victory: true, t: 3.6 };
+    this.music.duck(false);
+    this.music.setMode('victory');
   }
 
   onDefeat() {
@@ -349,6 +412,8 @@ export class Game {
     this.hud.message('DEFEATED', 'defeat-msg', 2.4);
     this.audio.play('defeat');
     this.pendingResult = { victory: false, t: 2.8 };
+    this.music.duck(false);
+    this.music.setMode('defeat');
   }
 
   showResults(victory) {

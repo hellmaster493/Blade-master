@@ -474,6 +474,31 @@ button.primary:hover, button.primary:focus-visible { box-shadow: 0 0 20px rgba(2
 .mode-buttons button { flex: 1 1 200px; font-size: clamp(14px, 1.3vw, 18px); padding: 14px 16px; text-align: left; }
 .mode-buttons small { display: block; font-family: var(--ui); font-style: normal; font-size: 11px; letter-spacing: 0.08em; opacity: 0.8; margin-top: 4px; }
 .title-links { display: flex; gap: 10px; margin-top: 12px; }
+.music-chip {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  z-index: 2;
+}
+.mc-bars { display: flex; align-items: flex-end; gap: 3px; height: 14px; transform: skewX(10deg); }
+.mc-bars i { display: block; width: 3px; height: 4px; background: var(--muted); }
+.music-chip.on { border-color: var(--blue); }
+.music-chip.on .mc-bars i { background: var(--blue); animation: eq 0.9s ease-in-out infinite alternate; }
+.music-chip.on .mc-bars i:nth-child(2) { animation-delay: -0.3s; }
+.music-chip.on .mc-bars i:nth-child(3) { animation-delay: -0.6s; }
+.music-chip.on .mc-bars i:nth-child(4) { animation-delay: -0.15s; }
+.music-chip:not(.on) { animation: chipcall 1.4s ease-in-out infinite alternate; }
+@keyframes eq { from { height: 3px; } to { height: 14px; } }
+@keyframes chipcall { from { box-shadow: 0 0 0 rgba(94, 200, 255, 0); } to { box-shadow: 0 0 16px rgba(94, 200, 255, 0.55); } }
+@media (prefers-reduced-motion: reduce) {
+  .music-chip.on .mc-bars i, .music-chip:not(.on) { animation: none; }
+  .music-chip.on .mc-bars i { height: 10px; }
+}
 .title-links button { font-size: 12px; padding: 7px 14px; }
 .title-note { font-size: 11px; color: var(--muted); margin-top: 14px; letter-spacing: 0.05em; }
 .touch-note { display: none; font-size: 12px; color: #dff4ff; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(94, 200, 255, 0.5); background: rgba(20, 60, 120, 0.35); }

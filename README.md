@@ -34,7 +34,21 @@ You need a desktop browser with WebGL2 (Chrome, Edge, Firefox or Safari). Pick *
 | **M** | Mute |
 | **Esc** | Pause (Resume, Restart, Settings, Controls, Quit) |
 
-Settings (saved locally): master volume, mute, mouse sensitivity, screen-shake strength and bloom on/off.
+Settings (saved locally): master volume, mute, music volume, soundtrack on/off, mouse sensitivity, screen-shake strength and bloom on/off.
+
+### Soundtrack
+
+The game has a futuristic dark-synthwave soundtrack, composed procedurally and played live through Web Audio, so there are no music files. Browsers only allow sound after you interact, so it starts on your first click, tap or key press. The **♪ chip** at the top right of the title screen turns it off and on. The music follows the game:
+
+| When | Music |
+|---|---|
+| Title screen | Ambient pads, slow arpeggio, sub bass (96 BPM) |
+| Training | Lighter groove (116 BPM) |
+| Rift Assault waves | Four-on-the-floor kick, clap, rolling 16th bass, 16th arpeggio (124 BPM) |
+| Boss | Darker progression with a lead melody and tom fills (132 BPM). It speeds up to 140 BPM and the lead jumps an octave when Gorvath enrages |
+| Victory / defeat | A bright swelling victory theme, or a slow, filtered lament |
+
+Changes land on the next beat. Pausing muffles the music, the ultimate dips it for the cinematic, and the audio clock pauses while the tab is hidden.
 
 ### Touchscreen
 
@@ -103,7 +117,7 @@ vendor/three/                  Three.js r170 (MIT) + bloom post-processing passe
 src/main.js                    boot + window.__RIFT__ debug/test API
 src/game.js                    renderer, single game loop, states, hit-stop/slow-mo, events
 src/config.js                  all tunables (stats, damage, cooldowns)
-src/core/                      input, procedural audio, cooldowns, events, math/easing
+src/core/                      input, procedural audio + music sequencer, cooldowns, events, math/easing
 src/combat/combat.js           shared Combatant interface, sector/radius queries, HitTracker
 src/characters/rig.js          analytic two-bone IK + springs
 src/characters/meshMerge.js    per-joint static mesh merging (fewer draw calls)
@@ -153,7 +167,8 @@ npm test        # needs Playwright + Chromium: npm i -D playwright && npx playwr
 12. A full boss fight (phase 2 included) ends in VICTORY with the sword sheathed; the defeat flow works; input is ignored after the game ends
 13. FX pools stay bounded, the scene-graph object count is unchanged after heavy use, and a simulation step takes about 1 ms
 15. Touchscreen, driven with real touch events in a phone-sized context: the joystick moves, dragging turns the camera, holding SLASH chains Quick Draw › Crosswind › Gale Breaker, the Q button casts, the pause button pauses, and nothing scrolls sideways
-16. No runtime or console errors
+16. The soundtrack stays silent until a real click, then measurably plays and changes through title › training › boss › victory, and muffles on pause
+17. No runtime or console errors
 
 Screenshots from each test go to `tests/output/`.
 
@@ -163,7 +178,7 @@ Screenshots from each test go to `tests/output/`.
 - Kurokaze is held one-handed. There's no IK for a two-handed grip.
 - Feet are phase-locked when running, but dashes and attack lunges still slide a little.
 - Real-GPU frame rate hasn't been measured: the test environment renders with a software GPU (SwiftShader). Draw calls are about 490 in the boss wave and about 640 at the busiest point of the ultimate. If performance is a problem, turn off **Bloom** in Settings.
-- Audio is synthesized (WebAudio). It's functional and distinct per action, but it isn't studio sound design.
+- Audio and music are synthesized live (WebAudio). They're distinct per action and per game stage, but they aren't studio-produced tracks.
 - Touch controls have only been tested in an emulated phone (Chromium mobile emulation with real touch events), not on a physical device. There's no gamepad support.
 
 ## Credits

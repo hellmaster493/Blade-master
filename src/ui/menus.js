@@ -48,6 +48,7 @@ export class Menus {
     on('[data-action="settings"]', (b) => this.open(this.settings, b.closest('.screen')));
     on('[data-action="controls"]', (b) => this.open(this.controls, b.closest('.screen')));
     on('[data-action="back"]', () => this.back());
+    on('[data-action="music"]', () => g.toggleMusic());
 
     const s = g.settings;
     const vol = this.root.querySelector('#set-volume');
@@ -55,7 +56,11 @@ export class Menus {
     const sens = this.root.querySelector('#set-sens');
     const shake = this.root.querySelector('#set-shake');
     const bloom = this.root.querySelector('#set-bloom');
+    const music = this.root.querySelector('#set-music');
+    const musicOn = this.root.querySelector('#set-music-on');
     vol.value = Math.round(s.volume * 100);
+    music.value = Math.round(s.music * 100);
+    musicOn.checked = s.musicOn;
     mute.checked = s.muted;
     sens.value = Math.round(s.sensitivity * 100);
     shake.value = Math.round(s.shake * 100);
@@ -67,12 +72,28 @@ export class Menus {
         sensitivity: sens.value / 100,
         shake: shake.value / 100,
         bloom: bloom.checked,
+        music: music.value / 100,
+        musicOn: musicOn.checked,
       });
       this.syncLabels();
+      this.syncMusic();
     };
-    for (const i of [vol, mute, sens, shake, bloom]) i.addEventListener('input', apply);
-    this.inputs = { vol, mute, sens, shake, bloom };
+    for (const i of [vol, mute, sens, shake, bloom, music, musicOn]) i.addEventListener('input', apply);
+    this.inputs = { vol, mute, sens, shake, bloom, music, musicOn };
     this.syncLabels();
+    this.syncMusic();
+  }
+
+  /** Title-screen music chip + settings checkbox reflect whether the soundtrack is playing. */
+  syncMusic() {
+    const g = this.game;
+    const chip = this.root.querySelector('.music-chip');
+    if (!chip) return;
+    const started = g.music && g.music.playing;
+    const on = g.settings.musicOn;
+    chip.classList.toggle('on', started && on);
+    chip.querySelector('.mc-text').textContent = !started ? 'Tap to start music' : on ? 'Music on' : 'Music off';
+    if (this.inputs) this.inputs.musicOn.checked = on;
   }
 
   syncLabels() {
@@ -80,6 +101,7 @@ export class Menus {
     this.root.querySelector('#lbl-volume').textContent = vol.value + '%';
     this.root.querySelector('#lbl-sens').textContent = (sens.value / 100).toFixed(2) + 'x';
     this.root.querySelector('#lbl-shake').textContent = shake.value + '%';
+    this.root.querySelector('#lbl-music').textContent = this.inputs.music.value + '%';
   }
 
   refreshSettings() {

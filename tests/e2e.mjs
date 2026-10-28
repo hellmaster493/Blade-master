@@ -645,9 +645,72 @@ if (!only || only === '15') {
   console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
 }
 
+// --------------------------------------------------------------------------- music
+// The soundtrack must start from a real user gesture and follow the game's state.
+if (!only || only === '16') {
+  ran++;
+  const name = '16. Futuristic soundtrack: starts on first click, follows title › training › boss › victory, muffles on pause';
+  const started = Date.now();
+  let res;
+  try {
+    await page.goto(`http://localhost:${port}/index.html?noprewarm`);
+    await page.waitForFunction('!!window.__RIFT__', null, { timeout: 30000 });
+    const silentBefore = await page.evaluate(() => !window.__RIFT__.game.music.playing);
+    await page.mouse.click(900, 400);
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      const m = window.__RIFT__.game.music;
+      const a = m.ctx.createAnalyser();
+      a.fftSize = 2048;
+      m.out.connect(a);
+      window.peakOver = (ms) => new Promise((done) => {
+        let p = 0;
+        const d = new Float32Array(a.fftSize);
+        const t0 = performance.now();
+        const id = setInterval(() => {
+          a.getFloatTimeDomainData(d);
+          let sum = 0;
+          for (const v of d) sum += v * v;
+          p = Math.max(p, Math.sqrt(sum / d.length));
+          if (performance.now() - t0 > ms) {
+            clearInterval(id);
+            done(p);
+          }
+        }, 30);
+      });
+    });
+    const probe = async (ms = 1200) => page.evaluate(async (ms) => {
+      const m = window.__RIFT__.game.music;
+      const peak = await window.peakOver(ms);
+      return { mode: m.mode, peak, muffle: m.muffle.frequency.value };
+    }, ms);
+    const title = await probe(2600);
+    await page.click('button[data-mode="training"]');
+    const training = await probe();
+    await page.evaluate(() => window.__RIFT__.game.pause());
+    const paused = await probe(700);
+    await page.evaluate(() => {
+      const g = window.__RIFT__.game;
+      g.resume();
+      g.startMatch('assault');
+      g.events.emit('waveStart', { index: 2, total: 3, name: 'FINAL WAVE', title: '', boss: true });
+    });
+    const boss = await probe();
+    await page.evaluate(() => window.__RIFT__.game.onVictory());
+    const victory = await probe(1800);
+    const ok = silentBefore && title.mode === 'menu' && title.peak > 0.02 && training.mode === 'training' && training.peak > title.peak * 0.8
+      && paused.muffle < 2000 && boss.mode === 'boss' && boss.peak > 0.05 && victory.mode === 'victory' && victory.peak > 0.02;
+    res = { ok, info: `silent until click=${silentBefore}; level title ${title.peak.toFixed(3)} › training ${training.peak.toFixed(3)} › boss ${boss.peak.toFixed(3)} › victory ${victory.peak.toFixed(3)}; pause muffles to ${Math.round(paused.muffle)} Hz` };
+  } catch (e) {
+    res = { ok: false, info: 'threw: ' + e.message };
+  }
+  if (!res.ok) failed++;
+  console.log(`${res.ok ? 'PASS' : 'FAIL'}  ${name}  (${((Date.now() - started) / 1000).toFixed(1)}s)\n      ${res.info}`);
+}
+
 const errOk = errors.length === 0;
 ran++;
-console.log(`${errOk ? 'PASS' : 'FAIL'}  16. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
+console.log(`${errOk ? 'PASS' : 'FAIL'}  17. No runtime or console errors${errOk ? '' : ':\n      ' + errors.slice(0, 10).join('\n      ')}`);
 if (!errOk) failed++;
 console.log(`\n${ran - failed}/${ran} checks passed. Screenshots: ${path.relative(process.cwd(), OUT)}/`);
 await browser.close();
